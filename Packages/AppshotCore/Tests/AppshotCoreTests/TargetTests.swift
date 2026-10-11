@@ -43,6 +43,30 @@ import Testing
         #expect(index.destination(id: "d1")?.kind.isAssistant == true)
     }
 
+    @Test func favoritesComeFirstAndLeaveRecentAndServers() {
+        let catalog = DiscordCatalog(updatedAt: Date(), servers: [
+            .init(id: "s", name: "S", channels: [.init(id: "c1", name: "general"), .init(id: "c2", name: "coding")]),
+        ])
+        let index = DestinationIndex(pinned: [], catalog: catalog, targets: settings().destinations(clipboardName: "Copy", folderName: "Save", shareName: "Share"))
+        let sections = index.sections(recent: ["c2", "c1"], favorites: ["c1", "target:clipboard", "gone"])
+        #expect(sections.map(\.id) == ["favorites", "recent", "targets"])
+        #expect(sections[0].items.map(\.id) == ["c1", "target:clipboard"])
+        #expect(sections[1].items.map(\.id) == ["c2"])
+        #expect(!sections[2].items.contains { $0.id == "target:clipboard" })
+        #expect(index.search("co", favorites: ["target:clipboard"]).first?.id == "target:clipboard")
+    }
+
+    @Test func favoriteListToggleMoveAndNumberKeys() {
+        #expect(Favorites.toggle("a", in: ["b"]) == ["b", "a"])
+        #expect(Favorites.toggle("a", in: ["a", "b"]) == ["b"])
+        #expect(Favorites.move(["a", "b", "c"], from: 2, by: -1) == ["a", "c", "b"])
+        #expect(Favorites.move(["a", "b"], from: 0, by: -1) == ["a", "b"])
+        #expect(Favorites.numberIndex(keyCharacter: "1") == 0)
+        #expect(Favorites.numberIndex(keyCharacter: "9") == 8)
+        #expect(Favorites.numberIndex(keyCharacter: "0") == nil)
+        #expect(Favorites.numberIndex(keyCharacter: "k") == nil)
+    }
+
     @Test func shellTemplateQuotesValues() {
         let rendered = CommandTemplate.shell("open {folder} --note {note} {unknown}", values: ["folder": "/tmp/a b", "note": "it's $HOME"])
         #expect(rendered == "open '/tmp/a b' --note 'it'\\''s $HOME' {unknown}")

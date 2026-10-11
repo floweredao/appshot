@@ -195,10 +195,13 @@ public struct DestinationIndex: Sendable {
         byID[id]
     }
 
-    public func sections(recent: [String], recentLimit: Int = 5) -> [Section] {
-        let recentItems = Array(recent.compactMap { byID[$0] }.prefix(recentLimit))
-        let recentIDs = Set(recentItems.map(\.id))
+    public func sections(recent: [String], favorites: [String] = [], recentLimit: Int = 5) -> [Section] {
+        let favoriteItems = favorites.compactMap { byID[$0] }
+        let favoriteIDs = Set(favoriteItems.map(\.id))
+        let recentItems = Array(recent.compactMap { byID[$0] }.filter { !favoriteIDs.contains($0.id) }.prefix(recentLimit))
+        let recentIDs = Set(recentItems.map(\.id)).union(favoriteIDs)
         var sections: [Section] = []
+        if !favoriteItems.isEmpty { sections.append(Section(id: "favorites", title: nil, items: favoriteItems)) }
         if !recentItems.isEmpty { sections.append(Section(id: "recent", title: nil, items: recentItems)) }
         let targetItems = all.filter { !$0.kind.isAssistant && !recentIDs.contains($0.id) }
         if !targetItems.isEmpty { sections.append(Section(id: "targets", title: nil, items: targetItems)) }
@@ -215,10 +218,11 @@ public struct DestinationIndex: Sendable {
         return sections
     }
 
-    public func search(_ query: String, recent: [String] = []) -> [Destination] {
+    public func search(_ query: String, recent: [String] = [], favorites: [String] = []) -> [Destination] {
         let tokens = query.split(whereSeparator: \.isWhitespace).map { Self.fold(String($0)) }.filter { !$0.isEmpty }
-        guard !tokens.isEmpty else { return sections(recent: recent).flatMap(\.items) }
+        guard !tokens.isEmpty else { return sections(recent: recent, favorites: favorites).flatMap(\.items) }
         let recentRank = Dictionary(uniqueKeysWithValues: recent.enumerated().map { ($1, $0) })
+        let favoriteSet = Set(favorites)
         let scored = all.compactMap { item -> (Destination, Int)? in
             let name = Self.fold(item.name)
             let haystack = [name, Self.fold(item.parent ?? ""), Self.fold(item.server ?? "")].joined(separator: " ")
@@ -226,6 +230,7 @@ public struct DestinationIndex: Sendable {
             var score = 0
             if name.hasPrefix(tokens[0]) { score += 100 } else if name.contains(tokens[0]) { score += 50 }
             if let rank = recentRank[item.id] { score += 40 - min(rank, 30) }
+            if favoriteSet.contains(item.id) { score += 60 }
             if item.kind == .channel { score += 5 }
             return (item, score)
         }
@@ -236,6 +241,25 @@ public struct DestinationIndex: Sendable {
 
     static func fold(_ text: String) -> String {
         text.folding(options: [.caseInsensitive, .diacriticInsensitive, .widthInsensitive], locale: nil)
+    }
+}
+
+public enum Favorites {
+    public static func toggle(_ id: String, in list: [String]) -> [String] {
+        list.contains(id) ? list.filter { $0 != id } : list + [id]
+    }
+
+    public static func move(_ list: [String], from index: Int, by offset: Int) -> [String] {
+        let target = index + offset
+        guard list.indices.contains(index), list.indices.contains(target) else { return list }
+        var copy = list
+        copy.swapAt(index, target)
+        return copy
+    }
+
+    public static func numberIndex(keyCharacter: String) -> Int? {
+        guard let digit = Int(keyCharacter), (1...9).contains(digit) else { return nil }
+        return digit - 1
     }
 }
 
