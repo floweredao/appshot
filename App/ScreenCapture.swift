@@ -7,8 +7,8 @@ enum ScreenCaptureError: Error, CustomStringConvertible {
 
     var description: String {
         switch self {
-        case .windowNotFound: "캡처할 창을 찾지 못했어요"
-        case .notPermitted: "화면 기록 권한이 필요해요"
+        case .windowNotFound: String(localized: "Could not find the window to capture.")
+        case .notPermitted: String(localized: "Screen Recording permission is needed for the screenshot.")
         }
     }
 }

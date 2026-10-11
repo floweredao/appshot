@@ -9,6 +9,7 @@ struct AXSnapshot: Sendable {
     var lines: [TextLine] = []
     var nodes = 0
     var truncated = false
+    var selection: String?
     var error: String?
 }
 
@@ -24,27 +25,55 @@ enum AXCollector {
         kAXDescriptionAttribute, kAXChildrenAttribute, "AXURL",
     ]
 
+    static func windowInfo(pid: pid_t) -> AXSnapshot {
+        guard AXIsProcessTrusted() else { return AXSnapshot() }
+        let app = AXUIElementCreateApplication(pid)
+        AXUIElementSetMessagingTimeout(app, 0.3)
+        guard let window = element(app, kAXFocusedWindowAttribute) ?? element(app, kAXMainWindowAttribute) else { return AXSnapshot() }
+        var info = AXSnapshot(title: string(window, kAXTitleAttribute), document: string(window, kAXDocumentAttribute))
+        if let focused = element(app, kAXFocusedUIElementAttribute) {
+            info.selection = string(focused, kAXSelectedTextAttribute)
+        }
+        return info
+    }
+
     static func snapshot(
         pid: pid_t,
-        maxNodes: Int = 20_000,
+        maxNodes: Int = 40_000,
         maxDepth: Int = 150,
-        budget: TimeInterval = 2.5
+        budget: TimeInterval = 3,
+        enhanceChromium: Bool = false
     ) -> AXSnapshot {
-        guard AXIsProcessTrusted() else { return AXSnapshot(error: "손쉬운 사용 권한이 없어 창 글자를 못 읽었어요") }
+        guard AXIsProcessTrusted() else {
+            return AXSnapshot(error: String(localized: "Accessibility permission is off, so window text could not be read."))
+        }
         let app = AXUIElementCreateApplication(pid)
         AXUIElementSetMessagingTimeout(app, 0.5)
+        var restoreEnhanced = false
         if AXUIElementSetAttributeValue(app, "AXManualAccessibility" as CFString, kCFBooleanTrue) == .success {
             Thread.sleep(forTimeInterval: 0.2)
+        }
+        if enhanceChromium, (copy(app, "AXEnhancedUserInterface") as? Bool) != true,
+           AXUIElementSetAttributeValue(app, "AXEnhancedUserInterface" as CFString, kCFBooleanTrue) == .success {
+            restoreEnhanced = true
+            Thread.sleep(forTimeInterval: 2.0)
+        }
+        defer {
+            if restoreEnhanced { AXUIElementSetAttributeValue(app, "AXEnhancedUserInterface" as CFString, kCFBooleanFalse) }
         }
         guard let window = element(app, kAXFocusedWindowAttribute)
             ?? element(app, kAXMainWindowAttribute)
             ?? elements(app, kAXWindowsAttribute).first
-        else { return AXSnapshot(error: "손쉬운 사용으로 창을 찾지 못했어요") }
+        else { return AXSnapshot(error: String(localized: "Could not find the window through Accessibility.")) }
 
         var snapshot = AXSnapshot(
             title: string(window, kAXTitleAttribute),
             document: string(window, kAXDocumentAttribute)
         )
+        if let focused = element(app, kAXFocusedUIElementAttribute),
+           let selected = string(focused, kAXSelectedTextAttribute) {
+            snapshot.selection = selected
+        }
         let deadline = Date().addingTimeInterval(budget)
         var stack: [(AXUIElement, Int, Bool)] = [(window, 0, false)]
         while let (current, depth, inHeading) = stack.popLast() {

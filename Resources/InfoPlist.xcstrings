@@ -1,0 +1,57 @@
+{
+  "sourceLanguage": "en",
+  "strings": {
+    "CFBundleDisplayName": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Appshot"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Appshot"
+          }
+        }
+      }
+    },
+    "NSAppleEventsUsageDescription": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Appshot asks your browser or terminal for the full text of the front window."
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Appshot이 맨 앞 창의 전체 글자를 받으려고 브라우저나 터미널에 요청해요."
+          }
+        }
+      }
+    },
+    "NSHumanReadableCopyright": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "MIT License"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "MIT 라이선스"
+          }
+        }
+      }
+    }
+  },
+  "version": "1.0"
+}

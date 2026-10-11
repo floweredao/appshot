@@ -4,6 +4,7 @@ options:
   deploymentTarget:
     macOS: "15.0"
   createIntermediateGroups: true
+  developmentLanguage: en
 configFiles:
   Debug: Config/Signing.xcconfig
   Release: Config/Signing.xcconfig
@@ -20,6 +21,7 @@ targets:
     platform: macOS
     sources:
       - path: App
+      - path: Resources
     dependencies:
       - package: AppshotCore
     info:
@@ -31,6 +33,14 @@ targets:
         LSUIElement: true
         LSApplicationCategoryType: public.app-category.productivity
         NSHumanReadableCopyright: MIT License
+        CFBundleDevelopmentRegion: en
+        CFBundleLocalizations: [en, ko]
+        CFBundleIconName: AppIcon
+        NSAppleEventsUsageDescription: Appshot asks your browser or terminal for the full text of the front window.
+    entitlements:
+      path: Config/Appshot.entitlements
+      properties:
+        com.apple.security.automation.apple-events: true
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.floweredao.appshot
@@ -40,6 +50,9 @@ targets:
         ENABLE_HARDENED_RUNTIME: YES
         GENERATE_INFOPLIST_FILE: NO
         DEAD_CODE_STRIPPING: YES
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        SWIFT_EMIT_LOC_STRINGS: YES
+        LOCALIZATION_PREFERS_STRING_CATALOGS: YES
 schemes:
   Appshot:
     build:
