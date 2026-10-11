@@ -1,0 +1,47 @@
+name: Appshot
+options:
+  bundleIdPrefix: com.floweredao
+  deploymentTarget:
+    macOS: "15.0"
+  createIntermediateGroups: true
+configFiles:
+  Debug: Config/Signing.xcconfig
+  Release: Config/Signing.xcconfig
+packages:
+  AppshotCore:
+    path: Packages/AppshotCore
+settings:
+  base:
+    SWIFT_VERSION: "6.0"
+    MACOSX_DEPLOYMENT_TARGET: "15.0"
+targets:
+  Appshot:
+    type: application
+    platform: macOS
+    sources:
+      - path: App
+    dependencies:
+      - package: AppshotCore
+    info:
+      path: .work/Info.plist
+      properties:
+        CFBundleDisplayName: Appshot
+        CFBundleShortVersionString: "0.1.0"
+        CFBundleVersion: "1"
+        LSUIElement: true
+        LSApplicationCategoryType: public.app-category.productivity
+        NSHumanReadableCopyright: MIT License
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.floweredao.appshot
+        CODE_SIGN_STYLE: Manual
+        CODE_SIGN_IDENTITY: Apple Development
+        "CODE_SIGN_IDENTITY[sdk=macosx*]": Apple Development
+        ENABLE_HARDENED_RUNTIME: YES
+        GENERATE_INFOPLIST_FILE: NO
+        DEAD_CODE_STRIPPING: YES
+schemes:
+  Appshot:
+    build:
+      targets:
+        Appshot: all
