@@ -38,10 +38,19 @@ public struct AppshotMeta: Codable, Sendable, Equatable {
         public var characters: Int
         public var truncated: Bool
         public var nodes: Int
-        public init(characters: Int, truncated: Bool, nodes: Int) {
+        public var method: String?
+        public var attempts: [String]?
+        public var selectionCharacters: Int?
+        public init(
+            characters: Int, truncated: Bool, nodes: Int,
+            method: String? = nil, attempts: [String]? = nil, selectionCharacters: Int? = nil
+        ) {
             self.characters = characters
             self.truncated = truncated
             self.nodes = nodes
+            self.method = method
+            self.attempts = attempts
+            self.selectionCharacters = selectionCharacters
         }
     }
 

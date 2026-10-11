@@ -198,7 +198,8 @@ private func inboxLine(_ id: String, _ channel: String, _ text: String) -> Strin
         )
         #expect(composed.truncated)
         #expect(composed.markdown.hasPrefix("# A\n\n- URL: https://e\n\n"))
-        #expect(composed.markdown.hasSuffix("_(text truncated)_\n"))
+        #expect(composed.markdown.contains("characters omitted"))
+        #expect(composed.markdown.hasSuffix("line 99\n"))
     }
 }
 

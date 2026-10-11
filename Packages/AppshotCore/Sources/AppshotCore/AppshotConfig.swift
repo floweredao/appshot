@@ -4,11 +4,32 @@ public struct ChannelOption: Codable, Sendable, Hashable, Identifiable {
     public var key: String
     public var label: String
     public var id: String
+    public var kind: String?
 
-    public init(key: String, label: String, id: String) {
+    public init(key: String, label: String, id: String, kind: String? = nil) {
         self.key = key
         self.label = label
         self.id = id
+        self.kind = kind
+    }
+}
+
+public struct CatalogSource: Codable, Sendable, Equatable {
+    public var cli: String
+    public var bot: String?
+    public var refreshMinutes: Int?
+    public var path: String?
+
+    public init(cli: String, bot: String? = nil, refreshMinutes: Int? = nil, path: String? = nil) {
+        self.cli = cli
+        self.bot = bot
+        self.refreshMinutes = refreshMinutes
+        self.path = path
+    }
+
+    public var cacheURL: URL {
+        if let path { return URL(filePath: AppshotConfig.expand(path)) }
+        return FileManager.default.homeDirectoryForCurrentUser.appending(path: "Library/Caches/Appshot/discord-catalog.json")
     }
 }
 
@@ -24,6 +45,7 @@ public struct AppshotConfig: Codable, Sendable, Equatable {
     public var ownerInbox: String?
     public var handledIds: String?
     public var assistantName: String?
+    public var catalog: CatalogSource?
 
     public init(
         stateDir: String,
@@ -33,7 +55,8 @@ public struct AppshotConfig: Codable, Sendable, Equatable {
         eventsLog: String? = nil,
         ownerInbox: String? = nil,
         handledIds: String? = nil,
-        assistantName: String? = nil
+        assistantName: String? = nil,
+        catalog: CatalogSource? = nil
     ) {
         self.stateDir = stateDir
         self.inboxDir = inboxDir
@@ -43,6 +66,7 @@ public struct AppshotConfig: Codable, Sendable, Equatable {
         self.ownerInbox = ownerInbox
         self.handledIds = handledIds
         self.assistantName = assistantName
+        self.catalog = catalog
     }
 
     public static var defaultURL: URL {
@@ -95,12 +119,12 @@ public struct AppshotConfig: Codable, Sendable, Equatable {
         stateDir: "~/path/to/assistant/state",
         inboxDir: "~/path/to/assistant/inbox/appshot",
         channels: [
-            ChannelOption(key: "general", label: "#general", id: "GENERAL_CHANNEL_ID"),
-            ChannelOption(key: "coding", label: "#coding", id: "CODING_CHANNEL_ID"),
-            ChannelOption(key: "dm", label: "DM", id: "DM_CHANNEL_ID"),
+            ChannelOption(key: "dm", label: "My DM", id: "DM_CHANNEL_ID", kind: "direct"),
+            ChannelOption(key: "general", label: "#general", id: "GENERAL_CHANNEL_ID", kind: "channel"),
         ],
         fallbackChannel: "general",
-        assistantName: "Assistant"
+        assistantName: "Assistant",
+        catalog: CatalogSource(cli: "/path/to/agent-discordbot", bot: "BOT_ALIAS", refreshMinutes: 15)
     )
 }
 
