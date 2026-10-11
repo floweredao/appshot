@@ -6,8 +6,10 @@
 
 <p align="center">
   <b>Press both ⌘ keys. Your assistant sees the window you are looking at.</b><br>
-  A macOS menu bar app that sends the front window's screenshot, its full text, and one line from you to a chat assistant.
+  A macOS menu bar app that captures the front window's screenshot and full text, then sends it with one line from you to your assistant, the clipboard, a folder, or any app.
 </p>
+
+<p align="center"><i>Inspired by Codex Appshots.</i></p>
 
 <p align="center">
   <a href="README-ko.md">한국어</a> ·
@@ -18,13 +20,13 @@
 <p align="center"><img src="docs/typing-en-light.png" width="720" alt="Appshot panel, light mode"></p>
 <p align="center"><img src="docs/typing-en-dark.png" width="720" alt="Appshot panel, dark mode"></p>
 
-Inspired by the Appshots feature in the Codex Mac app, Appshot does the same for any assistant that reads files, such as a Discord bot running on your Mac.
 
 ## Features
 
 - **One shortcut.** Press both Command keys together (or any shortcut you record) and a floating panel appears over the window you were using.
 - **A large, accurate preview.** The window is captured with ScreenCaptureKit at full resolution, without its shadow, and shown at its real aspect ratio.
 - **The whole page, not just the pixels.** In Safari and Chromium browsers, Appshot reads the entire page text, its URL, and your selection. In other apps, it walks the Accessibility tree, which includes text scrolled out of view. When neither works, it falls back to on-device OCR of the screenshot. See [What Appshot reads](#what-appshot-reads).
+- **Send it anywhere.** Your Discord assistant, the clipboard, a folder, the Share menu, a custom command, or straight into ChatGPT, Claude, Codex, Notes, or Slack. See [Send targets](#send-targets).
 - **Real destinations.** Pick a Discord server, channel, or active thread by name, search it, and keep your recent choices at the top. Your DM can carry its own name, like "My DM".
 - **Keyboard first.** ↩ sends, ⌘K opens the destination list, ↑↓ moves, and esc goes back or cancels.
 - **English and Korean.** The app follows your macOS language.
@@ -32,6 +34,21 @@ Inspired by the Appshots feature in the Codex Mac app, Appshot does the same for
 
 <p align="center"><img src="docs/picker-en-light.png" width="720" alt="Destination picker, light mode"></p>
 <p align="center"><img src="docs/picker-en-dark.png" width="720" alt="Destination picker, dark mode"></p>
+
+## Send targets
+
+Pick where an appshot goes in the panel with ⌘K. Appshot remembers the last target you used.
+
+| Target | What happens |
+| --- | --- |
+| **Assistant (Discord)** | Writes the folder to your assistant's inbox and appends `EVENT APPSHOT` to its events log. The assistant replies in the server, channel, thread, or DM you picked. |
+| **Copy to Clipboard** | Puts the screenshot (as an image) and the note plus window text (as text) on the clipboard. |
+| **Save to Folder…** | Asks for a folder (remembering the last one) and copies `shot.png`, `shot.jpg`, `text.md`, and `meta.json` there. |
+| **Paste into an app** | Brings an app you added (ChatGPT, Claude, Codex, Notes, Slack, …) to the front and pastes into its focused text field. Per app, choose *Image, then text*, *Files (PNG + text.md)*, *Text only*, or *Image only*, and optionally press Return. |
+| **Share…** | Opens the macOS Share menu (Mail, Messages, AirDrop, …) with the screenshot and text. |
+| **Custom command** | Runs a shell command, opens a URL scheme, or POSTs JSON to a webhook. Placeholders: `{folder}` `{note}` `{app}` `{title}` `{url}` `{screenshot}` `{preview}` `{text}` `{channel}`. Shell values are quoted, and `APPSHOT_*` environment variables are set. |
+
+Turn targets on or off, add apps, and write commands in **Settings… › Send targets**. Example command: `open -a Preview {screenshot}`.
 
 ## Install
 
