@@ -92,6 +92,9 @@ public struct DiscordCatalog: Codable, Sendable, Equatable {
 public struct Destination: Sendable, Hashable, Identifiable {
     public enum Kind: String, Sendable, Hashable {
         case direct, channel, thread
+        case clipboard, folder, share, app, command
+
+        public var isAssistant: Bool { self == .direct || self == .channel || self == .thread }
     }
 
     public var id: String
@@ -111,15 +114,15 @@ public struct Destination: Sendable, Hashable, Identifiable {
     public var title: String {
         switch kind {
         case .channel: "#\(name)"
-        case .direct, .thread: name
+        default: name
         }
     }
 
     public var context: String? {
         switch kind {
-        case .direct: nil
         case .channel: server
         case .thread: [server, parent.map { "#\($0)" }].compactMap { $0 }.joined(separator: " › ")
+        default: nil
         }
     }
 
@@ -151,12 +154,13 @@ public struct DestinationIndex: Sendable {
     public private(set) var all: [Destination] = []
     private var byID: [String: Destination] = [:]
 
-    public init(pinned: [ChannelOption], catalog: DiscordCatalog?) {
+    public init(pinned: [ChannelOption], catalog: DiscordCatalog?, targets: [Destination] = []) {
         var seen = Set<String>()
         func add(_ destination: Destination) {
             guard !destination.id.isEmpty, seen.insert(destination.id).inserted else { return }
             all.append(destination)
         }
+        targets.forEach(add)
         var known: [String: Destination] = [:]
         for server in catalog?.servers ?? [] {
             for channel in server.channels {
@@ -196,9 +200,11 @@ public struct DestinationIndex: Sendable {
         let recentIDs = Set(recentItems.map(\.id))
         var sections: [Section] = []
         if !recentItems.isEmpty { sections.append(Section(id: "recent", title: nil, items: recentItems)) }
+        let targetItems = all.filter { !$0.kind.isAssistant && !recentIDs.contains($0.id) }
+        if !targetItems.isEmpty { sections.append(Section(id: "targets", title: nil, items: targetItems)) }
         var order: [String] = []
         var grouped: [String: [Destination]] = [:]
-        for item in all where !recentIDs.contains(item.id) {
+        for item in all where item.kind.isAssistant && !recentIDs.contains(item.id) {
             let key = item.server ?? ""
             if grouped[key] == nil { order.append(key) }
             grouped[key, default: []].append(item)

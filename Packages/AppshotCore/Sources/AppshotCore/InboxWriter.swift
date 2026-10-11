@@ -108,9 +108,9 @@ public enum WriterError: Error, CustomStringConvertible {
 
 public struct InboxWriter: Sendable {
     public var inboxDir: URL
-    public var eventsLog: URL
+    public var eventsLog: URL?
 
-    public init(inboxDir: URL, eventsLog: URL) {
+    public init(inboxDir: URL, eventsLog: URL?) {
         self.inboxDir = inboxDir
         self.eventsLog = eventsLog
     }
@@ -154,7 +154,7 @@ public struct InboxWriter: Sendable {
             try writeFile(try encoder.encode(meta), named: "meta.json", in: staging)
 
             let final = try publish(staging, base: base)
-            try appendEvent(Self.eventLine(for: final))
+            if let eventsLog { try appendEvent(Self.eventLine(for: final), to: eventsLog) }
             return final
         } catch {
             try? fm.removeItem(at: staging)
@@ -179,11 +179,18 @@ public struct InboxWriter: Sendable {
         throw WriterError.io("rename folder", EEXIST)
     }
 
+    public func prune(keeping limit: Int) {
+        let fm = FileManager.default
+        guard let names = try? fm.contentsOfDirectory(atPath: inboxDir.path) else { return }
+        let folders = names.filter { !$0.hasPrefix(".") }.sorted()
+        for name in folders.dropLast(limit) { try? fm.removeItem(at: inboxDir.appending(path: name)) }
+    }
+
     private func rename(_ from: URL, to: URL) throws {
         if Foundation.rename(from.path, to.path) != 0 { throw WriterError.io("rename \(to.lastPathComponent)", errno) }
     }
 
-    private func appendEvent(_ line: String) throws {
+    private func appendEvent(_ line: String, to eventsLog: URL) throws {
         try FileManager.default.createDirectory(at: eventsLog.deletingLastPathComponent(), withIntermediateDirectories: true)
         let fd = open(eventsLog.path, O_WRONLY | O_APPEND | O_CREAT, 0o644)
         guard fd >= 0 else { throw WriterError.io("open events log", errno) }
