@@ -9,3 +9,5 @@ DerivedData/
 *.jpg
 *.jpeg
 *.heic
+!docs/*.png
+!Resources/Assets.xcassets/AppIcon.appiconset/*.png

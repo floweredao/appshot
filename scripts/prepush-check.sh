@@ -17,8 +17,8 @@ gitleaks dir --no-banner --redact . >/dev/null 2>>.work-gitleaks.log || {
 }
 rm -f .work-gitleaks.log
 
-images=$(git ls-files | grep -Ei '\.(png|jpe?g|heic|gif|tiff?|mov|mp4)$' || true)
-[ -z "$images" ] || report "tracked images/screens: $images"
+images=$(git ls-files | grep -Ei '\.(png|jpe?g|heic|gif|tiff?|mov|mp4)$' | grep -Ev '^(docs/[^/]+\.png|Resources/Assets\.xcassets/AppIcon\.appiconset/[^/]+\.png)$' || true)
+[ -z "$images" ] || report "images outside docs/ and the app icon: $images"
 
 history=$(git log --all -p --format='%an <%ae> %cn <%ce>%n%B' 2>/dev/null; git ls-files -z | xargs -0 cat 2>/dev/null)
 
