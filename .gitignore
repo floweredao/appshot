@@ -1,0 +1,11 @@
+.work/
+.build/
+.swiftpm/
+*.xcodeproj/
+Config/Local.xcconfig
+DerivedData/
+.DS_Store
+*.png
+*.jpg
+*.jpeg
+*.heic
