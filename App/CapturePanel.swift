@@ -456,6 +456,7 @@ private struct DestinationPicker: View {
                     .font(.system(size: 14))
                     .focused(focused, equals: .search)
                     .onChange(of: model.query) { model.highlighted = 0 }
+                    .onAppear { DispatchQueue.main.async { focused.wrappedValue = .search } }
             }
             .padding(.horizontal, 12)
             .padding(.vertical, 9)
