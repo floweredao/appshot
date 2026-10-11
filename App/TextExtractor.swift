@@ -90,6 +90,14 @@ enum TextExtractor {
                 attempts.append("accessibility:ok")
                 var lines = ax.lines
                 if let selection, !selection.isEmpty { lines.insert(TextLine(.field, "Selection:\n" + selection), at: 0) }
+                if count < 400, let screenshot {
+                    let visible = await Task.detached { recognize(screenshot) }.value
+                    if visible.count > count * 2 {
+                        attempts.append("vision-ocr:supplement")
+                        lines.append(TextLine(.heading, "Visible text (OCR)"))
+                        lines.append(contentsOf: visible.split(separator: "\n").map { TextLine(.body, String($0)) })
+                    }
+                }
                 let composed = TextComposer.compose(
                     appName: target.appName, windowTitle: ax.title, url: ax.url, document: ax.document,
                     lines: lines, traversalTruncated: ax.truncated

@@ -15,7 +15,7 @@ struct AXSnapshot: Sendable {
 
 enum AXCollector {
     private static let skippedRoles: Set<String> = [
-        "AXButton", "AXMenuButton", "AXPopUpButton", "AXCheckBox", "AXRadioButton",
+        "AXButton", "AXMenuButton", "AXPopUpButton", "AXCheckBox",
         "AXScrollBar", "AXSlider", "AXIncrementor", "AXDisclosureTriangle", "AXMenuBar", "AXMenu",
         "AXSecureTextField",
     ]
@@ -24,6 +24,65 @@ enum AXCollector {
         kAXRoleAttribute, kAXSubroleAttribute, kAXValueAttribute, kAXTitleAttribute,
         kAXDescriptionAttribute, kAXChildrenAttribute, "AXURL",
     ]
+
+    enum WebEngine {
+        case none, electron, chromium
+
+        static func of(pid: pid_t) -> WebEngine {
+            guard let url = NSRunningApplication(processIdentifier: pid)?.bundleURL else { return .none }
+            let frameworks = url.appending(path: "Contents/Frameworks")
+            if FileManager.default.fileExists(atPath: frameworks.appending(path: "Electron Framework.framework").path) {
+                return .electron
+            }
+            let fm = FileManager.default
+            let names = (try? fm.contentsOfDirectory(atPath: frameworks.path)) ?? []
+            for name in names where name.hasSuffix(" Framework.framework") {
+                let root = frameworks.appending(path: name)
+                let places = [root.appending(path: "Helpers"), root.appending(path: "Versions/Current/Helpers")]
+                for place in places {
+                    let helpers = (try? fm.contentsOfDirectory(atPath: place.path)) ?? []
+                    if helpers.contains(where: { $0.hasSuffix("Helper (Renderer).app") }) { return .chromium }
+                }
+                let versions = (try? fm.contentsOfDirectory(atPath: root.appending(path: "Versions").path)) ?? []
+                for version in versions where version != "Current" {
+                    let helpers = (try? fm.contentsOfDirectory(atPath: root.appending(path: "Versions/\(version)/Helpers").path)) ?? []
+                    if helpers.contains(where: { $0.hasSuffix("Helper (Renderer).app") }) { return .chromium }
+                }
+            }
+            return .none
+        }
+    }
+
+    private static func waitForTree(_ app: AXUIElement, maxWait: TimeInterval) {
+        let deadline = Date().addingTimeInterval(maxWait)
+        var last = -1
+        var stable = 0
+        while Date() < deadline {
+            let count = textCount(app, limit: 600)
+            if count >= 200 && count == last {
+                stable += 1
+                if stable >= 1 { return }
+            } else {
+                stable = 0
+            }
+            last = count
+            Thread.sleep(forTimeInterval: 0.2)
+        }
+    }
+
+    private static func textCount(_ app: AXUIElement, limit: Int) -> Int {
+        guard let window = element(app, kAXFocusedWindowAttribute) ?? element(app, kAXMainWindowAttribute) else { return 0 }
+        var stack = [window]
+        var visited = 0
+        var characters = 0
+        while let current = stack.popLast(), visited < limit {
+            visited += 1
+            let values = multiple(current)
+            if let text = values[kAXValueAttribute] as? String { characters += text.count }
+            if let children = values[kAXChildrenAttribute] as? [AXUIElement] { stack.append(contentsOf: children) }
+        }
+        return characters + visited
+    }
 
     static func windowInfo(pid: pid_t) -> AXSnapshot {
         guard AXIsProcessTrusted() else { return AXSnapshot() }
@@ -50,16 +109,22 @@ enum AXCollector {
         let app = AXUIElementCreateApplication(pid)
         AXUIElementSetMessagingTimeout(app, 0.5)
         var restoreEnhanced = false
-        if AXUIElementSetAttributeValue(app, "AXManualAccessibility" as CFString, kCFBooleanTrue) == .success {
-            Thread.sleep(forTimeInterval: 0.2)
+        let webEngine = WebEngine.of(pid: pid)
+        var switched = false
+        if (copy(app, "AXManualAccessibility") as? Bool) != true,
+           AXUIElementSetAttributeValue(app, "AXManualAccessibility" as CFString, kCFBooleanTrue) == .success {
+            switched = true
         }
-        if enhanceChromium, (copy(app, "AXEnhancedUserInterface") as? Bool) != true,
+        if enhanceChromium || webEngine == .chromium, (copy(app, "AXEnhancedUserInterface") as? Bool) != true,
            AXUIElementSetAttributeValue(app, "AXEnhancedUserInterface" as CFString, kCFBooleanTrue) == .success {
             restoreEnhanced = true
-            Thread.sleep(forTimeInterval: 2.0)
+            switched = true
         }
         defer {
             if restoreEnhanced { AXUIElementSetAttributeValue(app, "AXEnhancedUserInterface" as CFString, kCFBooleanFalse) }
+        }
+        if switched || webEngine != .none {
+            waitForTree(app, maxWait: switched ? 2.5 : 0.6)
         }
         guard let window = element(app, kAXFocusedWindowAttribute)
             ?? element(app, kAXMainWindowAttribute)
@@ -110,8 +175,13 @@ enum AXCollector {
                 if let description = values[kAXDescriptionAttribute] as? String, !description.isEmpty, description.count < 200 {
                     snapshot.lines.append(TextLine(.body, "(image: \(description))"))
                 }
+            case "AXLink", "AXRadioButton", "AXTab", "AXMenuItem", "AXCell", "AXRow":
+                if let label = label(values) { snapshot.lines.append(TextLine(.body, label)) }
             default:
-                break
+                let children = values[kAXChildrenAttribute] as? [AXUIElement] ?? []
+                if children.isEmpty, role != "AXWindow", let label = label(values) {
+                    snapshot.lines.append(TextLine(.body, label))
+                }
             }
             guard depth < maxDepth, let children = values[kAXChildrenAttribute] as? [AXUIElement] else {
                 if depth >= maxDepth { snapshot.truncated = true }
@@ -120,6 +190,16 @@ enum AXCollector {
             for child in children.reversed() { stack.append((child, depth + 1, heading)) }
         }
         return snapshot
+    }
+
+    private static func label(_ values: [String: Any]) -> String? {
+        for key in [kAXValueAttribute, kAXTitleAttribute, kAXDescriptionAttribute] {
+            if let text = values[key] as? String {
+                let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+                if !trimmed.isEmpty, key != kAXDescriptionAttribute || trimmed.count < 200 { return trimmed }
+            }
+        }
+        return nil
     }
 
     private static func multiple(_ element: AXUIElement) -> [String: Any] {
