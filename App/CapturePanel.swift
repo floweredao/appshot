@@ -129,6 +129,15 @@ final class CapturePanel: NSPanel {
         invalidateShadow()
     }
 
+    override func performKeyEquivalent(with event: NSEvent) -> Bool {
+        let flags = event.modifierFlags.intersection(.deviceIndependentFlagsMask)
+        if event.type == .keyDown, Int(event.keyCode) == kVK_ANSI_K, flags.contains(.command), let model {
+            MainActor.assumeIsolated { model.togglePicker() }
+            return true
+        }
+        return super.performKeyEquivalent(with: event)
+    }
+
     override func sendEvent(_ event: NSEvent) {
         guard event.type == .keyDown, let model else { return super.sendEvent(event) }
         let flags = event.modifierFlags.intersection(.deviceIndependentFlagsMask)
