@@ -145,6 +145,14 @@ final class CapturePanel: NSPanel {
     override var canBecomeKey: Bool { true }
     override var canBecomeMain: Bool { false }
 
+    override func resignKey() {
+        super.resignKey()
+        guard let model else { return }
+        MainActor.assumeIsolated {
+            if model.phase != .sending { model.onCancel() }
+        }
+    }
+
     override func setFrame(_ frameRect: NSRect, display flag: Bool) {
         var rect = frameRect
         if isVisible { rect.origin.y = frame.maxY - rect.height }
