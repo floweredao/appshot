@@ -1479,18 +1479,18 @@
         }
       }
     },
-    "Search servers, channels, threads": {
+    "Search apps, actions, servers, channels, threads": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Search servers, channels, threads"
+            "value": "Search apps, actions, servers, channels, threads"
           }
         },
         "ko": {
           "stringUnit": {
             "state": "translated",
-            "value": "서버, 채널, 스레드 찾기"
+            "value": "앱, 동작, 서버, 채널, 스레드 찾기"
           }
         }
       }

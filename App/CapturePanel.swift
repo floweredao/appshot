@@ -454,7 +454,7 @@ private struct DestinationPicker: View {
         VStack(spacing: 0) {
             HStack(spacing: 8) {
                 Image(systemName: "magnifyingglass").foregroundStyle(.secondary).accessibilityHidden(true)
-                TextField("Search servers, channels, threads", text: $model.query)
+                TextField("Search apps, actions, servers, channels, threads", text: $model.query)
                     .textFieldStyle(.plain)
                     .font(.system(size: 14))
                     .focused(focused, equals: .search)
