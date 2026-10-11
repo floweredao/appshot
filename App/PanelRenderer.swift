@@ -80,8 +80,16 @@ enum PanelRenderer {
             .init(id: "s2", name: String(localized: "demo.server2"), channels: [.init(id: "c4", name: "reading-list")]),
         ])
         let pinned = [ChannelOption(key: "dm", label: String(localized: "demo.dm"), id: "d1", kind: "direct")]
-        model.index = DestinationIndex(pinned: pinned, catalog: catalog)
-        model.recentIDs = ["t1", "d1", "c1"]
+        var targets = TargetSettings()
+        targets.apps = [AppTarget(bundleID: "com.apple.Notes", name: String(localized: "demo.notes"))]
+        model.index = DestinationIndex(
+            pinned: pinned, catalog: catalog,
+            targets: targets.destinations(
+                clipboardName: String(localized: "Copy to Clipboard"),
+                folderName: String(localized: "Save to Folder…"), shareName: String(localized: "Share…")
+            )
+        )
+        model.recentIDs = ["t1", "target:clipboard", "d1"]
         model.destination = model.index.destination(id: "t1")
         return model
     }

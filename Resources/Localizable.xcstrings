@@ -20,6 +20,22 @@
         }
       }
     },
+    "%@ did not come to the front.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ did not come to the front."
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@이(가) 앞으로 오지 않았어요."
+          }
+        }
+      }
+    },
     "%lld characters": {
       "localizations": {
         "en": {
@@ -80,6 +96,54 @@
           "stringUnit": {
             "state": "translated",
             "value": "손쉬운 사용 권한이 꺼져 있어 창 글자를 읽지 못했어요."
+          }
+        }
+      }
+    },
+    "Add": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Add"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "추가"
+          }
+        }
+      }
+    },
+    "Add App…": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Add App…"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "앱 추가…"
+          }
+        }
+      }
+    },
+    "Add Command": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Add Command"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "명령 추가"
           }
         }
       }
@@ -148,6 +212,22 @@
         }
       }
     },
+    "Apps & actions": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Apps & actions"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "앱과 동작"
+          }
+        }
+      }
+    },
     "Appshot": {
       "shouldTranslate": false
     },
@@ -163,6 +243,22 @@
           "stringUnit": {
             "state": "translated",
             "value": "Appshot 설정"
+          }
+        }
+      }
+    },
+    "Appshot brings the app to the front and pastes into its focused text field. Chat apps such as ChatGPT, Claude, and Codex accept “Image, then text” or “Files”.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Appshot brings the app to the front and pastes into its focused text field. Chat apps such as ChatGPT, Claude, and Codex accept “Image, then text” or “Files”."
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Appshot이 앱을 앞으로 가져와 입력 중인 칸에 붙여 넣어요. ChatGPT, Claude, Codex 같은 대화 앱은 ‘이미지 다음 글자’나 ‘파일’을 받아요."
           }
         }
       }
@@ -215,6 +311,22 @@
         }
       }
     },
+    "Cancelled.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cancelled."
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "취소했어요."
+          }
+        }
+      }
+    },
     "Channel IDs and paths live only in this file, never in the app.": {
       "localizations": {
         "en": {
@@ -263,6 +375,22 @@
         }
       }
     },
+    "Choose where to save this appshot.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Choose where to save this appshot."
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "이 앱샷을 저장할 곳을 고르세요."
+          }
+        }
+      }
+    },
     "Click the field, then press both keys of a modifier together (like both ⌘), tap one modifier twice, or press a key combination.": {
       "localizations": {
         "en": {
@@ -275,6 +403,22 @@
           "stringUnit": {
             "state": "translated",
             "value": "칸을 누른 뒤 수정키 양쪽을 같이 누르거나(양쪽 ⌘처럼), 수정키 하나를 두 번 누르거나, 키 조합을 누르세요."
+          }
+        }
+      }
+    },
+    "Command, URL, or webhook address": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Command, URL, or webhook address"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "명령, URL 또는 웹훅 주소"
           }
         }
       }
@@ -311,6 +455,38 @@
         }
       }
     },
+    "Copied the screenshot and text to the clipboard.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Copied the screenshot and text to the clipboard."
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "스크린샷과 글자를 클립보드에 복사했어요."
+          }
+        }
+      }
+    },
+    "Copy to Clipboard": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Copy to Clipboard"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "클립보드에 복사"
+          }
+        }
+      }
+    },
     "Could not change the login item: %@": {
       "localizations": {
         "en": {
@@ -339,6 +515,22 @@
           "stringUnit": {
             "state": "translated",
             "value": "설정 파일을 만들지 못했어요: %@"
+          }
+        }
+      }
+    },
+    "Could not find %@.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Could not find %@."
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@을(를) 찾지 못했어요."
           }
         }
       }
@@ -391,6 +583,22 @@
         }
       }
     },
+    "Could not send: %@": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Could not send: %@"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "보내지 못했어요: %@"
+          }
+        }
+      }
+    },
     "Create Template": {
       "localizations": {
         "en": {
@@ -403,6 +611,38 @@
           "stringUnit": {
             "state": "translated",
             "value": "템플릿 만들기"
+          }
+        }
+      }
+    },
+    "Custom command": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Custom command"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "사용자 명령"
+          }
+        }
+      }
+    },
+    "Custom commands": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Custom commands"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "사용자 명령"
           }
         }
       }
@@ -455,6 +695,38 @@
         }
       }
     },
+    "Discord destinations come from the config file. Pick a target in the panel with ⌘K; Appshot remembers the last one.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Discord destinations come from the config file. Pick a target in the panel with ⌘K; Appshot remembers the last one."
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "디스코드 보낼 곳은 설정 파일에서 와요. 입력창에서 ⌘K로 대상을 고르면 마지막에 쓴 대상을 기억해요."
+          }
+        }
+      }
+    },
+    "Files (PNG + text.md)": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Files (PNG + text.md)"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "파일 (PNG + text.md)"
+          }
+        }
+      }
+    },
     "If a permission does not take effect, restart Appshot.": {
       "localizations": {
         "en": {
@@ -467,6 +739,54 @@
           "stringUnit": {
             "state": "translated",
             "value": "권한이 바로 반영되지 않으면 Appshot을 다시 시작하세요."
+          }
+        }
+      }
+    },
+    "Image and text": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Image and text"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "이미지와 글자"
+          }
+        }
+      }
+    },
+    "Image only": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Image only"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "이미지만"
+          }
+        }
+      }
+    },
+    "Image, then text": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Image, then text"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "이미지 다음 글자"
           }
         }
       }
@@ -519,6 +839,22 @@
         }
       }
     },
+    "Mail, Messages, AirDrop…": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mail, Messages, AirDrop…"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "메일, 메시지, AirDrop…"
+          }
+        }
+      }
+    },
     "Message": {
       "localizations": {
         "en": {
@@ -551,6 +887,22 @@
         }
       }
     },
+    "Name": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Name"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "이름"
+          }
+        }
+      }
+    },
     "Needed": {
       "localizations": {
         "en": {
@@ -563,6 +915,22 @@
           "stringUnit": {
             "state": "translated",
             "value": "필요함"
+          }
+        }
+      }
+    },
+    "New command": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "New command"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "새 명령"
           }
         }
       }
@@ -647,6 +1015,22 @@
         }
       }
     },
+    "Open and paste": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Open and paste"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "열고 붙여넣기"
+          }
+        }
+      }
+    },
     "Open at login": {
       "localizations": {
         "en": {
@@ -663,6 +1047,70 @@
         }
       }
     },
+    "PNG, JPEG, text, metadata": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "PNG, JPEG, text, metadata"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "PNG, JPEG, 글자, 메타데이터"
+          }
+        }
+      }
+    },
+    "Paste": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Paste"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "붙여넣기"
+          }
+        }
+      }
+    },
+    "Paste into apps": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Paste into apps"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "앱에 붙여넣기"
+          }
+        }
+      }
+    },
+    "Pasted into %@.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pasted into %@."
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@에 붙여 넣었어요."
+          }
+        }
+      }
+    },
     "Permissions": {
       "localizations": {
         "en": {
@@ -675,6 +1123,38 @@
           "stringUnit": {
             "state": "translated",
             "value": "권한"
+          }
+        }
+      }
+    },
+    "Placeholders: {folder} {note} {app} {title} {url} {screenshot} {preview} {text} {channel}. Shell commands also get APPSHOT_FOLDER and friends; values are quoted for you. A webhook receives a JSON POST.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Placeholders: {folder} {note} {app} {title} {url} {screenshot} {preview} {text} {channel}. Shell commands also get APPSHOT_FOLDER and friends; values are quoted for you. A webhook receives a JSON POST."
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "자리표시자: {folder} {note} {app} {title} {url} {screenshot} {preview} {text} {channel}. 셸 명령에는 APPSHOT_FOLDER 같은 환경 변수도 들어가고, 값은 알아서 따옴표로 감싸요. 웹훅은 JSON POST를 받아요."
+          }
+        }
+      }
+    },
+    "Press Return": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Press Return"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Return 누르기"
           }
         }
       }
@@ -739,6 +1219,22 @@
           "stringUnit": {
             "state": "translated",
             "value": "Appshot 종료"
+          }
+        }
+      }
+    },
+    "Ran %@.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ran %@."
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@을(를) 실행했어요."
           }
         }
       }
@@ -823,6 +1319,22 @@
         }
       }
     },
+    "Remove": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Remove"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "빼기"
+          }
+        }
+      }
+    },
     "Reset to Default": {
       "localizations": {
         "en": {
@@ -851,6 +1363,54 @@
           "stringUnit": {
             "state": "translated",
             "value": "다시 시작"
+          }
+        }
+      }
+    },
+    "Save Here": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Save Here"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "여기에 저장"
+          }
+        }
+      }
+    },
+    "Save to Folder…": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Save to Folder…"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "폴더에 저장…"
+          }
+        }
+      }
+    },
+    "Saved to %@": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Saved to %@"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@에 저장했어요"
           }
         }
       }
@@ -951,6 +1511,22 @@
         }
       }
     },
+    "Send targets": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Send targets"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "보낼 대상"
+          }
+        }
+      }
+    },
     "Send to": {
       "localizations": {
         "en": {
@@ -1011,6 +1587,54 @@
           "stringUnit": {
             "state": "translated",
             "value": "설정…"
+          }
+        }
+      }
+    },
+    "Shared.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Shared."
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "공유했어요."
+          }
+        }
+      }
+    },
+    "Share…": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Share…"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "공유…"
+          }
+        }
+      }
+    },
+    "Shell": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Shell"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "셸"
           }
         }
       }
@@ -1111,6 +1735,54 @@
         }
       }
     },
+    "Text only": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Text only"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "글자만"
+          }
+        }
+      }
+    },
+    "The URL template did not produce a valid URL.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The URL template did not produce a valid URL."
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "URL 틀에서 올바른 URL이 나오지 않았어요."
+          }
+        }
+      }
+    },
+    "The command failed (%d): %@": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The command failed (%d): %@"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "명령이 실패했어요 (%d): %@"
+          }
+        }
+      }
+    },
     "The config file does not exist yet.": {
       "localizations": {
         "en": {
@@ -1123,6 +1795,22 @@
           "stringUnit": {
             "state": "translated",
             "value": "설정 파일이 아직 없어요."
+          }
+        }
+      }
+    },
+    "The webhook answered with HTTP %lld.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The webhook answered with HTTP %lld."
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "웹훅이 HTTP %lld로 답했어요."
           }
         }
       }
@@ -1159,6 +1847,38 @@
         }
       }
     },
+    "Type": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Type"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "종류"
+          }
+        }
+      }
+    },
+    "URL": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "URL"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "URL"
+          }
+        }
+      }
+    },
     "Updated": {
       "localizations": {
         "en": {
@@ -1187,6 +1907,22 @@
           "stringUnit": {
             "state": "translated",
             "value": "보이는 글자"
+          }
+        }
+      }
+    },
+    "Webhook": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Webhook"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "웹훅"
           }
         }
       }
@@ -1371,6 +2107,23 @@
           "stringUnit": {
             "state": "translated",
             "value": "이 페이지 설치 단계를 요약해 줄래?"
+          }
+        }
+      }
+    },
+    "demo.notes": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Notes"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "메모"
           }
         }
       }

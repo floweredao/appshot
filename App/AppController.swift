@@ -25,6 +25,8 @@ final class AppController {
     private(set) var accessibilityAllowed = false
     private(set) var launchAtLogin = false
     private(set) var lastResult: String?
+    private(set) var targetsRevision = 0
+    @ObservationIgnored private let sharePresenter = SharePresenter()
     var recordingShortcut = false {
         didSet { recordingShortcut ? hotkey.stop() : applyShortcut() }
     }
@@ -39,6 +41,8 @@ final class AppController {
     private static let shortcutKey = "shortcut"
     private static let onboardedKey = "onboarded"
     private static let recentKey = "recentDestinations"
+    private static let lastKey = "lastDestination"
+    private static let targetsKey = "targets"
 
     init() {
         if let data = UserDefaults.standard.data(forKey: Self.shortcutKey),
@@ -208,8 +212,95 @@ final class AppController {
         UserDefaults.standard.set(RecentDestinations.push(id, into: recentIDs), forKey: Self.recentKey)
     }
 
-    func destinationIndex(_ config: AppshotConfig) -> DestinationIndex {
-        DestinationIndex(pinned: config.channels, catalog: catalog)
+    func destinationIndex(_ config: AppshotConfig?) -> DestinationIndex {
+        DestinationIndex(
+            pinned: config?.channels ?? [], catalog: config == nil ? nil : catalog,
+            targets: targetSettings.destinations(
+                clipboardName: String(localized: "Copy to Clipboard"),
+                folderName: String(localized: "Save to Folder…"),
+                shareName: String(localized: "Share…")
+            )
+        )
+    }
+
+    var targetSettings: TargetSettings {
+        get { TargetSettings.decode(UserDefaults.standard.data(forKey: Self.targetsKey)) }
+        set {
+            if let data = try? JSONEncoder().encode(newValue) { UserDefaults.standard.set(data, forKey: Self.targetsKey) }
+            targetsRevision += 1
+        }
+    }
+
+    func updateTargets(_ change: (inout TargetSettings) -> Void) {
+        var value = targetSettings
+        change(&value)
+        targetSettings = value
+    }
+
+    func addAppTarget() {
+        let panel = NSOpenPanel()
+        panel.allowedContentTypes = [.application]
+        panel.directoryURL = URL(filePath: "/Applications")
+        panel.prompt = String(localized: "Add")
+        NSApp.activate()
+        guard panel.runModal() == .OK, let url = panel.url, let bundle = Bundle(url: url), let id = bundle.bundleIdentifier else { return }
+        let name = FileManager.default.displayName(atPath: url.path).replacingOccurrences(of: ".app", with: "")
+        updateTargets { settings in
+            if !settings.apps.contains(where: { $0.bundleID == id }) { settings.apps.append(AppTarget(bundleID: id, name: name)) }
+        }
+    }
+
+    static var capturesURL: URL {
+        FileManager.default.homeDirectoryForCurrentUser.appending(path: "Library/Application Support/Appshot/Captures", directoryHint: .isDirectory)
+    }
+
+    func deliver(
+        _ destination: Destination, result: CaptureResult, target: TargetWindow, note: String,
+        source: String, beforeInteractive: () -> Void = {}, shareFrom view: NSView? = nil
+    ) async throws -> String {
+        let channel = AppshotMeta.Channel(id: destination.id, label: destination.title, source: source)
+        if destination.kind.isAssistant {
+            guard let config else { throw ConfigError.missing("config.json") }
+            let folder = try await Self.write(
+                result: result, target: target, note: note, channel: channel,
+                inbox: config.inboxURL, eventsLog: config.eventsLogURL
+            )
+            return String(localized: "Sent to \(destination.title)") + " · \(folder.lastPathComponent)"
+        }
+        let folder = try await Self.write(
+            result: result, target: target, note: note, channel: channel, inbox: Self.capturesURL, eventsLog: nil
+        )
+        InboxWriter(inboxDir: Self.capturesURL, eventsLog: nil).prune(keeping: 50)
+        let payload = DeliveryPayload(
+            folder: folder, note: note.trimmingCharacters(in: .whitespacesAndNewlines), markdown: result.text.markdown,
+            appName: target.appName, title: result.text.title, url: result.text.url, targetName: destination.title
+        )
+        var settings = targetSettings
+        switch destination.kind {
+        case .clipboard:
+            TargetDelivery.copyToClipboard(payload)
+            return String(localized: "Copied the screenshot and text to the clipboard.")
+        case .folder:
+            beforeInteractive()
+            let saved = try TargetDelivery.saveToFolder(payload, settings: &settings)
+            targetSettings = settings
+            return String(localized: "Saved to \(saved.path(percentEncoded: false))")
+        case .share:
+            guard let view else { throw DeliveryError.cancelled }
+            guard await sharePresenter.present(payload, from: view) else { throw DeliveryError.cancelled }
+            return String(localized: "Shared.")
+        case .app:
+            guard let app = settings.app(for: destination.id) else { throw DeliveryError.appNotFound(destination.title) }
+            beforeInteractive()
+            try await TargetDelivery.paste(payload, into: app)
+            return String(localized: "Pasted into \(app.name).")
+        case .command:
+            guard let command = settings.command(for: destination.id) else { throw DeliveryError.badURL }
+            try await TargetDelivery.run(command, payload: payload)
+            return String(localized: "Ran \(command.name).")
+        case .direct, .channel, .thread:
+            return ""
+        }
     }
 
     func shoot() {
@@ -224,39 +315,52 @@ final class AppController {
         refreshCatalogIfNeeded()
         let model = PanelModel(appName: target.appName, appIcon: NSRunningApplication(processIdentifier: target.pid)?.icon)
         model.previewAspect = target.bounds.height > 0 ? target.bounds.width / target.bounds.height : 1.6
+        let index = destinationIndex(config)
+        model.index = index
+        var recents = recentIDs
+        var preferred: Destination?
         if let config {
-            let index = destinationIndex(config)
-            let resolved = ChannelResolver(config: config).resolve()
-            model.index = index
             model.assistantName = config.assistantName ?? model.assistantName
-            model.recentIDs = RecentDestinations.push(resolved.id, into: recentIDs)
-            model.destination = index.destination(id: resolved.id)
-                ?? Destination(id: resolved.id, name: resolved.label, kind: .thread)
-        } else {
-            let reason = configError ?? ""
-            model.phase = .failed(String(localized: "\(reason) Open Settings from the menu bar to fix it."))
+            let resolved = ChannelResolver(config: config).resolve()
+            recents = RecentDestinations.push(resolved.id, into: recents)
+            preferred = index.destination(id: resolved.id) ?? Destination(id: resolved.id, name: resolved.label, kind: .thread)
         }
+        if let last = UserDefaults.standard.string(forKey: Self.lastKey), let found = index.destination(id: last), !found.kind.isAssistant {
+            preferred = found
+            recents = RecentDestinations.push(last, into: recents)
+        }
+        model.recentIDs = recents
+        model.destination = preferred ?? index.all.first
         let capture = Task.detached(priority: .userInitiated) { await Self.capture(target) }
         model.onCancel = { [weak self] in
             capture.cancel()
             self?.finish()
         }
         model.onSend = { [weak self] in
-            guard let self, let config = self.config, let destination = model.destination else { return }
+            guard let self, let destination = model.destination else { return }
             model.phase = .sending
             Task {
                 let result = await capture.value
                 do {
-                    let folder = try await Self.write(
-                        result: result, target: target, note: model.note,
-                        channel: AppshotMeta.Channel(id: destination.id, label: destination.title, source: "panel"),
-                        config: config
+                    let summary = try await self.deliver(
+                        destination, result: result, target: target, note: model.note, source: "panel",
+                        beforeInteractive: { self.panel.close() }, shareFrom: self.panel.contentView
                     )
                     self.remember(destination.id)
-                    self.lastResult = String(localized: "Sent to \(destination.title)") + " · \(folder.lastPathComponent)"
+                    UserDefaults.standard.set(destination.id, forKey: Self.lastKey)
+                    self.lastResult = summary
                     self.finish()
+                } catch DeliveryError.cancelled {
+                    if self.panel.isVisible { model.phase = .ready } else { self.finish() }
                 } catch {
-                    model.phase = .failed(String(localized: "Could not save: \(String(describing: error))"))
+                    let message = String(localized: "Could not send: \(String(describing: error))")
+                    if self.panel.isVisible {
+                        model.phase = .failed(message)
+                    } else {
+                        self.lastResult = message
+                        self.finish()
+                        NSSound.beep()
+                    }
                 }
             }
         }
@@ -301,7 +405,7 @@ final class AppController {
 
     nonisolated static func write(
         result: CaptureResult, target: TargetWindow, note: String,
-        channel: AppshotMeta.Channel, config: AppshotConfig, now: Date = Date()
+        channel: AppshotMeta.Channel, inbox: URL, eventsLog: URL?, now: Date = Date()
     ) async throws -> URL {
         try await Task.detached(priority: .userInitiated) {
             let text = result.text
@@ -321,7 +425,7 @@ final class AppController {
                 ),
                 errors: result.errors
             )
-            let writer = InboxWriter(inboxDir: config.inboxURL, eventsLog: config.eventsLogURL)
+            let writer = InboxWriter(inboxDir: inbox, eventsLog: eventsLog)
             return try writer.write(AppshotPayload(png: result.png, jpeg: result.jpeg, markdown: text.markdown, meta: meta), now: now)
         }.value
     }
@@ -332,35 +436,35 @@ final class AppController {
             exit(code)
         }
         try? await Task.sleep(for: .milliseconds(request.delayMilliseconds))
-        guard let config else {
-            FileHandle.standardError.write(Data("appshot: \(configError ?? "config error")\n".utf8))
-            exit(2)
-        }
-        guard let target = FrontWindow.find() else {
+        guard let target = FrontWindow.find(bundleID: request.appBundleID) else {
             FileHandle.standardError.write(Data("appshot: no front window\n".utf8))
             exit(3)
         }
-        let channel: AppshotMeta.Channel
+        let index = destinationIndex(config)
+        let destination: Destination
         if request.channel == "recent" {
+            guard let config else {
+                FileHandle.standardError.write(Data("appshot: \(configError ?? "config error")\n".utf8))
+                exit(2)
+            }
             let resolved = ChannelResolver(config: config).resolve()
-            let title = destinationIndex(config).destination(id: resolved.id)?.title ?? resolved.label
-            channel = AppshotMeta.Channel(id: resolved.id, label: title, source: "recent:\(resolved.source.rawValue)")
-        } else if let option = config.channel(forKey: request.channel) ?? config.channel(forID: request.channel) {
-            channel = AppshotMeta.Channel(id: option.id, label: option.label, source: "argument")
-        } else if let destination = destinationIndex(config).destination(id: request.channel) {
-            channel = AppshotMeta.Channel(id: destination.id, label: destination.title, source: "argument")
+            destination = index.destination(id: resolved.id) ?? Destination(id: resolved.id, name: resolved.label, kind: .thread)
+        } else if let option = config?.channel(forKey: request.channel), let found = index.destination(id: option.id) {
+            destination = found
+        } else if let found = index.destination(id: request.channel) ?? index.destination(id: "target:\(request.channel)") {
+            destination = found
         } else {
             FileHandle.standardError.write(Data("appshot: unknown channel \(request.channel)\n".utf8))
             exit(4)
         }
         let result = await Self.capture(target)
         do {
-            let folder = try await Self.write(result: result, target: target, note: request.note, channel: channel, config: config)
-            print(folder.path(percentEncoded: false))
+            let summary = try await deliver(destination, result: result, target: target, note: request.note, source: "argument")
+            print(summary)
             for error in result.errors { FileHandle.standardError.write(Data("appshot: warning: \(error)\n".utf8)) }
             exit(0)
         } catch {
-            FileHandle.standardError.write(Data("appshot: write failed: \(error)\n".utf8))
+            FileHandle.standardError.write(Data("appshot: send failed: \(error)\n".utf8))
             exit(5)
         }
     }
@@ -378,6 +482,7 @@ struct HeadlessRequest: Sendable {
     var channel = "recent"
     var delayMilliseconds = 500
     var configPath: String?
+    var appBundleID: String?
     var render: Render?
 
     static func parse(_ arguments: [String]) -> HeadlessRequest? {
@@ -392,6 +497,7 @@ struct HeadlessRequest: Sendable {
             case "--channel": request.channel = iterator.next() ?? "recent"
             case "--delay-ms": request.delayMilliseconds = Int(iterator.next() ?? "") ?? 500
             case "--config": request.configPath = iterator.next()
+            case "--app": request.appBundleID = iterator.next()
             case "--render": render.output = iterator.next() ?? ""
             case "--dark": render.dark = true
             case "--scene": render.scene = iterator.next() ?? "panel"

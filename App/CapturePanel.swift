@@ -185,6 +185,9 @@ final class PanelController {
         panel = nil
     }
 
+    var isVisible: Bool { panel?.isVisible ?? false }
+    var contentView: NSView? { panel?.contentView }
+
     private func position(_ panel: NSPanel, near bounds: CGRect?) {
         let primaryHeight = NSScreen.screens.first?.frame.height ?? 0
         let screen: NSScreen? = bounds.flatMap { cg in
@@ -303,9 +306,9 @@ struct PanelView: View {
             Button(action: model.openPicker) {
                 HStack(spacing: 8) {
                     if let destination = model.destination {
-                        DestinationIcon(kind: destination.kind)
+                        DestinationIcon(kind: destination.kind, id: destination.id)
                         Text(destination.title).font(.system(size: 13.5, weight: .medium)).lineLimit(1)
-                        if let context = destination.context {
+                        if let context = destination.context ?? DestinationSubtitle.text(destination) {
                             Text(context).font(.system(size: 12)).foregroundStyle(.secondary).lineLimit(1)
                         }
                     } else {
@@ -507,6 +510,8 @@ private struct SectionTitle: View {
         Group {
             if section.id == "recent" {
                 Text("Recent")
+            } else if section.id == "targets" {
+                Text("Apps & actions")
             } else if let title = section.title {
                 Text(verbatim: title)
             }
@@ -526,10 +531,10 @@ private struct DestinationRow: View {
 
     var body: some View {
         HStack(spacing: 9) {
-            DestinationIcon(kind: item.kind)
+            DestinationIcon(kind: item.kind, id: item.id)
                 .padding(.leading, item.kind == .thread ? 14 : 0)
             Text(item.title).font(.system(size: 13.5)).lineLimit(1)
-            if let context = item.context, item.kind != .channel {
+            if let context = item.context ?? DestinationSubtitle.text(item), item.kind != .channel {
                 Text(context).font(.system(size: 12)).foregroundStyle(highlighted ? .white.opacity(0.85) : .secondary).lineLimit(1)
             }
             Spacer(minLength: 4)
@@ -549,12 +554,24 @@ private struct DestinationRow: View {
 
 struct DestinationIcon: View {
     let kind: Destination.Kind
+    var id: String = ""
 
     var body: some View {
-        Image(systemName: symbol)
-            .font(.system(size: 12, weight: .semibold))
-            .frame(width: 18)
-            .accessibilityHidden(true)
+        Group {
+            if kind == .app, let icon = appIcon {
+                Image(nsImage: icon).resizable().frame(width: 16, height: 16)
+            } else {
+                Image(systemName: symbol).font(.system(size: 12, weight: .semibold))
+            }
+        }
+        .frame(width: 18)
+        .accessibilityHidden(true)
+    }
+
+    private var appIcon: NSImage? {
+        let bundleID = id.replacingOccurrences(of: "target:app:", with: "")
+        guard let url = NSWorkspace.shared.urlForApplication(withBundleIdentifier: bundleID) else { return nil }
+        return NSWorkspace.shared.icon(forFile: url.path)
     }
 
     private var symbol: String {
@@ -562,6 +579,11 @@ struct DestinationIcon: View {
         case .direct: "person.crop.circle.fill"
         case .channel: "number"
         case .thread: "bubble.left.and.text.bubble.right"
+        case .clipboard: "doc.on.clipboard"
+        case .folder: "folder"
+        case .share: "square.and.arrow.up"
+        case .app: "app.badge"
+        case .command: "terminal"
         }
     }
 }
@@ -593,6 +615,19 @@ private struct PanelBackground: View {
             Rectangle().fill(.clear).glassEffect(.regular, in: RoundedRectangle(cornerRadius: PanelView.cornerRadius, style: .continuous))
         } else {
             Rectangle().fill(.regularMaterial)
+        }
+    }
+}
+
+enum DestinationSubtitle {
+    static func text(_ destination: Destination) -> String? {
+        switch destination.kind {
+        case .clipboard: String(localized: "Image and text")
+        case .folder: String(localized: "PNG, JPEG, text, metadata")
+        case .share: String(localized: "Mail, Messages, AirDrop…")
+        case .app: String(localized: "Open and paste")
+        case .command: String(localized: "Custom command")
+        case .direct, .channel, .thread: nil
         }
     }
 }

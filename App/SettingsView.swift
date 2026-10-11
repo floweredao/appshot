@@ -41,6 +41,8 @@ struct SettingsView: View {
                     .foregroundStyle(.secondary)
             }
 
+            TargetsSection(controller: controller)
+
             Section {
                 PermissionRow(
                     title: Text("Screen Recording"),
@@ -298,5 +300,125 @@ private struct PermissionRow: View {
             }
             Button("Open Settings", action: openSettings)
         }
+    }
+}
+
+private struct TargetsSection: View {
+    @Bindable var controller: AppController
+
+    var body: some View {
+        let _ = controller.targetsRevision
+        let settings = controller.targetSettings
+        Section {
+            Toggle(isOn: binding(\.clipboard)) { Label("Copy to Clipboard", systemImage: "doc.on.clipboard") }
+            Toggle(isOn: binding(\.folder)) { Label("Save to Folder…", systemImage: "folder") }
+            Toggle(isOn: binding(\.share)) { Label("Share…", systemImage: "square.and.arrow.up") }
+        } header: {
+            Text("Send targets")
+        } footer: {
+            Text("Discord destinations come from the config file. Pick a target in the panel with ⌘K; Appshot remembers the last one.")
+                .font(.caption).foregroundStyle(.secondary)
+        }
+
+        Section {
+            ForEach(Array(settings.apps.enumerated()), id: \.element.id) { index, app in
+                HStack(spacing: 10) {
+                    DestinationIcon(kind: .app, id: TargetID.app(app.bundleID))
+                    Text(verbatim: app.name).lineLimit(1)
+                    Spacer()
+                    Picker(selection: Binding(
+                        get: { app.paste },
+                        set: { value in controller.updateTargets { $0.apps[index].paste = value } }
+                    )) {
+                        Text("Image, then text").tag(PasteMode.imageAndText)
+                        Text("Files (PNG + text.md)").tag(PasteMode.files)
+                        Text("Text only").tag(PasteMode.textOnly)
+                        Text("Image only").tag(PasteMode.imageOnly)
+                    } label: {
+                        Text("Paste")
+                    }
+                    .labelsHidden()
+                    .fixedSize()
+                    Toggle(isOn: Binding(
+                        get: { app.pressReturn },
+                        set: { value in controller.updateTargets { $0.apps[index].pressReturn = value } }
+                    )) { Text("Press Return") }
+                    .toggleStyle(.checkbox)
+                    Button(role: .destructive) {
+                        controller.updateTargets { $0.apps.remove(at: index) }
+                    } label: {
+                        Image(systemName: "minus.circle")
+                    }
+                    .buttonStyle(.borderless)
+                    .accessibilityLabel(Text("Remove"))
+                }
+            }
+            HStack {
+                Spacer()
+                Button("Add App…", action: controller.addAppTarget)
+            }
+        } header: {
+            Text("Paste into apps")
+        } footer: {
+            Text("Appshot brings the app to the front and pastes into its focused text field. Chat apps such as ChatGPT, Claude, and Codex accept “Image, then text” or “Files”.")
+                .font(.caption).foregroundStyle(.secondary)
+        }
+
+        Section {
+            ForEach(Array(settings.commands.enumerated()), id: \.element.id) { index, command in
+                VStack(alignment: .leading, spacing: 6) {
+                    HStack {
+                        TextField(text: Binding(
+                            get: { command.name },
+                            set: { value in controller.updateTargets { $0.commands[index].name = value } }
+                        )) { Text("Name") }
+                        Picker(selection: Binding(
+                            get: { command.kind },
+                            set: { value in controller.updateTargets { $0.commands[index].kind = value } }
+                        )) {
+                            Text("Shell").tag(CommandKind.shell)
+                            Text("URL").tag(CommandKind.url)
+                            Text("Webhook").tag(CommandKind.webhook)
+                        } label: {
+                            Text("Type")
+                        }
+                        .labelsHidden()
+                        .fixedSize()
+                        Button(role: .destructive) {
+                            controller.updateTargets { $0.commands.remove(at: index) }
+                        } label: {
+                            Image(systemName: "minus.circle")
+                        }
+                        .buttonStyle(.borderless)
+                        .accessibilityLabel(Text("Remove"))
+                    }
+                    TextField(text: Binding(
+                        get: { command.template },
+                        set: { value in controller.updateTargets { $0.commands[index].template = value } }
+                    )) { Text("Command, URL, or webhook address") }
+                    .font(.system(.body, design: .monospaced))
+                }
+            }
+            HStack {
+                Spacer()
+                Button("Add Command") {
+                    controller.updateTargets {
+                        $0.commands.append(CommandTarget(name: String(localized: "New command"), kind: .shell, template: "open {folder}"))
+                    }
+                }
+            }
+        } header: {
+            Text("Custom commands")
+        } footer: {
+            Text("Placeholders: {folder} {note} {app} {title} {url} {screenshot} {preview} {text} {channel}. Shell commands also get APPSHOT_FOLDER and friends; values are quoted for you. A webhook receives a JSON POST.")
+                .font(.caption).foregroundStyle(.secondary)
+        }
+    }
+
+    private func binding(_ keyPath: WritableKeyPath<TargetSettings, Bool>) -> Binding<Bool> {
+        Binding(
+            get: { controller.targetSettings[keyPath: keyPath] },
+            set: { value in controller.updateTargets { $0[keyPath: keyPath] = value } }
+        )
     }
 }
