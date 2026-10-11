@@ -32,6 +32,9 @@ final class PanelModel {
 
     var index = DestinationIndex(pinned: [], catalog: nil)
     var recentIDs: [String] = []
+    var favoriteIDs: [String] = []
+    var numberShortcuts = true
+    var onFavoritesChanged: ([String]) -> Void = { _ in }
     var destination: Destination?
     var pickerOpen = false
     var query = ""
@@ -49,10 +52,10 @@ final class PanelModel {
 
     var canSend: Bool { phase != .sending && destination != nil }
 
-    var results: [Destination] { index.search(query, recent: recentIDs) }
+    var results: [Destination] { index.search(query, recent: recentIDs, favorites: favoriteIDs) }
 
     var sections: [DestinationIndex.Section] {
-        if query.trimmingCharacters(in: .whitespaces).isEmpty { return index.sections(recent: recentIDs) }
+        if query.trimmingCharacters(in: .whitespaces).isEmpty { return index.sections(recent: recentIDs, favorites: favoriteIDs) }
         return [DestinationIndex.Section(id: "results", title: nil, items: results)]
     }
 
@@ -84,6 +87,26 @@ final class PanelModel {
             destination = chosen
         }
         closePicker()
+    }
+
+    func toggleFavorite(_ item: Destination) {
+        favoriteIDs = Favorites.toggle(item.id, in: favoriteIDs)
+        onFavoritesChanged(favoriteIDs)
+    }
+
+    func toggleHighlightedFavorite() {
+        let list = results
+        guard pickerOpen, list.indices.contains(highlighted) else { return }
+        toggleFavorite(list[highlighted])
+    }
+
+    func pickNumber(_ position: Int) -> Bool {
+        guard numberShortcuts else { return false }
+        let list = pickerOpen ? results : index.sections(recent: recentIDs, favorites: favoriteIDs).flatMap(\.items)
+        guard list.indices.contains(position) else { return false }
+        destination = list[position]
+        if pickerOpen { closePicker() }
+        return true
     }
 
     func submit() {
@@ -133,6 +156,16 @@ final class CapturePanel: NSPanel {
         let flags = event.modifierFlags.intersection(.deviceIndependentFlagsMask)
         if event.type == .keyDown, Int(event.keyCode) == kVK_ANSI_K, flags.contains(.command), let model {
             MainActor.assumeIsolated { model.togglePicker() }
+            return true
+        }
+        if event.type == .keyDown, Int(event.keyCode) == kVK_ANSI_D, flags == .command, let model,
+           MainActor.assumeIsolated({ model.pickerOpen }) {
+            MainActor.assumeIsolated { model.toggleHighlightedFavorite() }
+            return true
+        }
+        if event.type == .keyDown, flags == .command, let model,
+           let number = Favorites.numberIndex(keyCharacter: event.charactersIgnoringModifiers ?? ""),
+           MainActor.assumeIsolated({ model.pickNumber(number) }) {
             return true
         }
         return super.performKeyEquivalent(with: event)
@@ -350,6 +383,8 @@ struct PanelView: View {
             KeyHint(keys: "↩", label: model.pickerOpen ? Text("Choose") : Text("Send"))
             KeyHint(keys: "⌘K", label: Text("Destination"))
             if model.pickerOpen { KeyHint(keys: "↑↓", label: Text("Move")) }
+            if model.pickerOpen { KeyHint(keys: "⌘D", label: Text("Favorite")) }
+            if model.numberShortcuts { KeyHint(keys: "⌘1–9", label: Text("Quick pick")) }
             Spacer(minLength: 0)
             KeyHint(keys: "esc", label: model.pickerOpen ? Text("Back") : Text("Cancel"))
         }
@@ -475,7 +510,10 @@ private struct DestinationPicker: View {
                                 DestinationRow(
                                     item: item,
                                     highlighted: position == model.highlighted,
-                                    selected: item.id == model.destination?.id
+                                    selected: item.id == model.destination?.id,
+                                    number: model.numberShortcuts && position >= 0 && position < 9 ? position + 1 : nil,
+                                    favorite: model.favoriteIDs.contains(item.id),
+                                    toggleFavorite: { model.toggleFavorite(item) }
                                 )
                                 .id(item.id)
                                 .onTapGesture { model.choose(item) }
@@ -508,7 +546,9 @@ private struct SectionTitle: View {
 
     var body: some View {
         Group {
-            if section.id == "recent" {
+            if section.id == "favorites" {
+                Label("Favorites", systemImage: "star.fill")
+            } else if section.id == "recent" {
                 Text("Recent")
             } else if section.id == "targets" {
                 Text("Apps & actions")
@@ -528,6 +568,9 @@ private struct DestinationRow: View {
     let item: Destination
     let highlighted: Bool
     let selected: Bool
+    var number: Int?
+    var favorite = false
+    var toggleFavorite: () -> Void = {}
 
     var body: some View {
         HStack(spacing: 9) {
@@ -540,6 +583,20 @@ private struct DestinationRow: View {
             Spacer(minLength: 4)
             if selected {
                 Image(systemName: "checkmark").font(.system(size: 11, weight: .bold))
+            }
+            Button(action: toggleFavorite) {
+                Image(systemName: favorite ? "star.fill" : "star")
+                    .font(.system(size: 12, weight: .medium))
+                    .foregroundStyle(favorite ? (highlighted ? Color.white : Color.yellow) : (highlighted ? Color.white.opacity(0.8) : Color.secondary))
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel(favorite ? Text("Remove from Favorites") : Text("Add to Favorites"))
+            if let number {
+                Text(verbatim: "⌘\(number)")
+                    .font(.system(size: 11, weight: .medium, design: .rounded))
+                    .foregroundStyle(highlighted ? Color.white.opacity(0.85) : Color.secondary)
+                    .frame(minWidth: 26, alignment: .trailing)
+                    .accessibilityHidden(true)
             }
         }
         .foregroundStyle(highlighted ? Color.white : Color.primary)

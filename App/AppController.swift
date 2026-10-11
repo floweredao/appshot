@@ -43,6 +43,8 @@ final class AppController {
     private static let recentKey = "recentDestinations"
     private static let lastKey = "lastDestination"
     private static let targetsKey = "targets"
+    private static let favoritesKey = "favorites"
+    private static let numberShortcutsKey = "numberShortcuts"
 
     init() {
         if let data = UserDefaults.standard.data(forKey: Self.shortcutKey),
@@ -204,6 +206,28 @@ final class AppController {
         settingsWindow?.makeKeyAndOrderFront(nil)
     }
 
+    var favoriteIDs: [String] {
+        get {
+            _ = targetsRevision
+            return UserDefaults.standard.stringArray(forKey: Self.favoritesKey) ?? []
+        }
+        set {
+            UserDefaults.standard.set(newValue, forKey: Self.favoritesKey)
+            targetsRevision += 1
+        }
+    }
+
+    var numberShortcuts: Bool {
+        get {
+            _ = targetsRevision
+            return UserDefaults.standard.object(forKey: Self.numberShortcutsKey) as? Bool ?? true
+        }
+        set {
+            UserDefaults.standard.set(newValue, forKey: Self.numberShortcutsKey)
+            targetsRevision += 1
+        }
+    }
+
     var recentIDs: [String] {
         UserDefaults.standard.stringArray(forKey: Self.recentKey) ?? []
     }
@@ -330,6 +354,9 @@ final class AppController {
             recents = RecentDestinations.push(last, into: recents)
         }
         model.recentIDs = recents
+        model.favoriteIDs = favoriteIDs
+        model.numberShortcuts = numberShortcuts
+        model.onFavoritesChanged = { [weak self] ids in self?.favoriteIDs = ids }
         model.destination = preferred ?? index.all.first
         let capture = Task.detached(priority: .userInitiated) { await Self.capture(target) }
         model.onCancel = { [weak self] in

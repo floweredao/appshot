@@ -90,6 +90,7 @@ enum PanelRenderer {
             )
         )
         model.recentIDs = ["t1", "target:clipboard", "d1"]
+        model.favoriteIDs = ["d1", "target:app:com.apple.Notes"]
         model.destination = model.index.destination(id: "t1")
         return model
     }

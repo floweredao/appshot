@@ -41,6 +41,8 @@ struct SettingsView: View {
                     .foregroundStyle(.secondary)
             }
 
+            FavoritesSection(controller: controller)
+
             TargetsSection(controller: controller)
 
             Section {
@@ -420,5 +422,64 @@ private struct TargetsSection: View {
             get: { controller.targetSettings[keyPath: keyPath] },
             set: { value in controller.updateTargets { $0[keyPath: keyPath] = value } }
         )
+    }
+}
+
+private struct FavoritesSection: View {
+    @Bindable var controller: AppController
+
+    var body: some View {
+        let favorites = controller.favoriteIDs
+        let index = controller.destinationIndex(controller.config)
+        Section {
+            Toggle(isOn: Binding(get: { controller.numberShortcuts }, set: { controller.numberShortcuts = $0 })) {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Number shortcuts")
+                    Text("Press ⌘1–⌘9 in the panel to pick a destination from the top of the list.")
+                        .font(.caption).foregroundStyle(.secondary)
+                }
+            }
+            if favorites.isEmpty {
+                Text("No favorites yet. Click the star next to a destination in the panel, or press ⌘D.")
+                    .foregroundStyle(.secondary)
+            }
+            ForEach(Array(favorites.enumerated()), id: \.element) { position, id in
+                HStack(spacing: 10) {
+                    if let item = index.destination(id: id) {
+                        DestinationIcon(kind: item.kind, id: item.id)
+                        Text(verbatim: item.title).lineLimit(1)
+                        if let context = item.context ?? DestinationSubtitle.text(item) {
+                            Text(verbatim: context).font(.caption).foregroundStyle(.secondary).lineLimit(1)
+                        }
+                    } else {
+                        Image(systemName: "questionmark.circle").frame(width: 18).accessibilityHidden(true)
+                        Text("Unavailable").foregroundStyle(.secondary)
+                    }
+                    Spacer()
+                    if controller.numberShortcuts && position < 9 {
+                        Text(verbatim: "⌘\(position + 1)").font(.caption.monospacedDigit()).foregroundStyle(.secondary)
+                    }
+                    Button { controller.favoriteIDs = Favorites.move(favorites, from: position, by: -1) } label: {
+                        Image(systemName: "chevron.up")
+                    }
+                    .buttonStyle(.borderless)
+                    .disabled(position == 0)
+                    .accessibilityLabel(Text("Move Up"))
+                    Button { controller.favoriteIDs = Favorites.move(favorites, from: position, by: 1) } label: {
+                        Image(systemName: "chevron.down")
+                    }
+                    .buttonStyle(.borderless)
+                    .disabled(position == favorites.count - 1)
+                    .accessibilityLabel(Text("Move Down"))
+                    Button(role: .destructive) { controller.favoriteIDs = Favorites.toggle(id, in: favorites) } label: {
+                        Image(systemName: "minus.circle")
+                    }
+                    .buttonStyle(.borderless)
+                    .accessibilityLabel(Text("Remove"))
+                }
+            }
+        } header: {
+            Text("Favorites")
+        }
     }
 }

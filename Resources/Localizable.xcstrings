@@ -148,6 +148,22 @@
         }
       }
     },
+    "Add to Favorites": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Add to Favorites"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "즐겨찾기에 넣기"
+          }
+        }
+      }
+    },
     "Allow Appshot to control the browser in System Settings › Privacy & Security › Automation to include the whole page.": {
       "localizations": {
         "en": {
@@ -711,6 +727,38 @@
         }
       }
     },
+    "Favorite": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Favorite"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "즐겨찾기"
+          }
+        }
+      }
+    },
+    "Favorites": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Favorites"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "즐겨찾기"
+          }
+        }
+      }
+    },
     "Files (PNG + text.md)": {
       "localizations": {
         "en": {
@@ -887,6 +935,38 @@
         }
       }
     },
+    "Move Down": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Move Down"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "아래로"
+          }
+        }
+      }
+    },
+    "Move Up": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Move Up"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "위로"
+          }
+        }
+      }
+    },
     "Name": {
       "localizations": {
         "en": {
@@ -951,6 +1031,22 @@
         }
       }
     },
+    "No favorites yet. Click the star next to a destination in the panel, or press ⌘D.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No favorites yet. Click the star next to a destination in the panel, or press ⌘D."
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "아직 즐겨찾기가 없어요. 입력창에서 보낼 곳 옆의 별을 누르거나 ⌘D를 누르세요."
+          }
+        }
+      }
+    },
     "No matches": {
       "localizations": {
         "en": {
@@ -995,6 +1091,22 @@
           "stringUnit": {
             "state": "translated",
             "value": "찍을 창이 없어요."
+          }
+        }
+      }
+    },
+    "Number shortcuts": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Number shortcuts"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "숫자 단축키"
           }
         }
       }
@@ -1207,6 +1319,38 @@
         }
       }
     },
+    "Press ⌘1–⌘9 in the panel to pick a destination from the top of the list.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Press ⌘1–⌘9 in the panel to pick a destination from the top of the list."
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "입력창에서 ⌘1~⌘9를 누르면 목록 위에서부터 보낼 곳을 바로 골라요."
+          }
+        }
+      }
+    },
+    "Quick pick": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Quick pick"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "바로 고르기"
+          }
+        }
+      }
+    },
     "Quit Appshot": {
       "localizations": {
         "en": {
@@ -1331,6 +1475,22 @@
           "stringUnit": {
             "state": "translated",
             "value": "빼기"
+          }
+        }
+      }
+    },
+    "Remove from Favorites": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Remove from Favorites"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "즐겨찾기에서 빼기"
           }
         }
       }
@@ -1875,6 +2035,22 @@
           "stringUnit": {
             "state": "translated",
             "value": "URL"
+          }
+        }
+      }
+    },
+    "Unavailable": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Unavailable"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "찾을 수 없음"
           }
         }
       }
