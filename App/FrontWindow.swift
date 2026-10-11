@@ -8,6 +8,7 @@ struct TargetWindow: Sendable {
     var bundleID: String?
     var windowID: CGWindowID
     var bounds: CGRect
+    var title: String?
 }
 
 enum FrontWindow {
@@ -81,7 +82,8 @@ enum FrontWindow {
             appName: app?.localizedName ?? owner ?? "pid \(pid)",
             bundleID: app?.bundleIdentifier,
             windowID: number,
-            bounds: bounds
+            bounds: bounds,
+            title: (info[kCGWindowName as String] as? String).flatMap { $0.isEmpty ? nil : $0 }
         )
     }
 }

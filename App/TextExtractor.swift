@@ -51,7 +51,7 @@ enum TextExtractor {
                        page.text.trimmingCharacters(in: .whitespacesAndNewlines).count >= minimumUseful {
                         attempts.append("\(method.rawValue):ok")
                         let composed = TextComposer.composePage(
-                            appName: target.appName, windowTitle: page.title ?? ax.title, url: page.url ?? ax.url,
+                            appName: target.appName, windowTitle: page.title ?? ax.title ?? target.title, url: page.url ?? ax.url,
                             selection: (page.selection?.isEmpty == false ? page.selection : selection), text: page.text
                         )
                         return ExtractedText(
@@ -64,11 +64,11 @@ enum TextExtractor {
                     if method == .terminalScript, output.trimmingCharacters(in: .whitespacesAndNewlines).count >= minimumUseful {
                         attempts.append("\(method.rawValue):ok")
                         let composed = TextComposer.composePage(
-                            appName: target.appName, windowTitle: ax.title, url: nil, selection: selection, text: output
+                            appName: target.appName, windowTitle: ax.title ?? target.title, url: nil, selection: selection, text: output
                         )
                         return ExtractedText(
                             markdown: composed.markdown, characters: composed.bodyCharacters, truncated: composed.truncated,
-                            method: method, attempts: attempts, title: ax.title, url: nil, document: ax.document,
+                            method: method, attempts: attempts, title: ax.title ?? target.title, url: nil, document: ax.document,
                             selectionCharacters: selection?.count, nodes: ax.nodes, warnings: warnings
                         )
                     }
@@ -99,12 +99,12 @@ enum TextExtractor {
                     }
                 }
                 let composed = TextComposer.compose(
-                    appName: target.appName, windowTitle: ax.title, url: ax.url, document: ax.document,
+                    appName: target.appName, windowTitle: ax.title ?? target.title, url: ax.url, document: ax.document,
                     lines: lines, traversalTruncated: ax.truncated
                 )
                 return ExtractedText(
                     markdown: composed.markdown, characters: composed.bodyCharacters, truncated: composed.truncated,
-                    method: .accessibility, attempts: attempts, title: ax.title, url: ax.url, document: ax.document,
+                    method: .accessibility, attempts: attempts, title: ax.title ?? target.title, url: ax.url, document: ax.document,
                     selectionCharacters: selection?.count, nodes: ax.nodes, warnings: warnings
                 )
             case .ocr:
@@ -116,23 +116,24 @@ enum TextExtractor {
                 attempts.append(text.isEmpty ? "vision-ocr:empty" : "vision-ocr:ok")
                 guard !text.isEmpty else { continue }
                 let composed = TextComposer.composePage(
-                    appName: target.appName, windowTitle: ax.title, url: ax.url, selection: selection, text: text
+                    appName: target.appName, windowTitle: ax.title ?? target.title, url: ax.url, selection: selection, text: text
                 )
                 return ExtractedText(
                     markdown: composed.markdown, characters: composed.bodyCharacters, truncated: composed.truncated,
-                    method: .ocr, attempts: attempts, title: ax.title, url: ax.url, document: ax.document,
+                    method: .ocr, attempts: attempts, title: ax.title ?? target.title, url: ax.url, document: ax.document,
                     selectionCharacters: selection?.count, nodes: ax.nodes, warnings: warnings
                 )
             }
         }
         let ax = await axSnapshot()
+        let title = ax.title ?? target.title
         let composed = TextComposer.compose(
-            appName: target.appName, windowTitle: ax.title, url: ax.url, document: ax.document, lines: ax.lines,
+            appName: target.appName, windowTitle: title, url: ax.url, document: ax.document, lines: ax.lines,
             traversalTruncated: ax.truncated
         )
         return ExtractedText(
             markdown: composed.markdown, characters: composed.bodyCharacters, truncated: composed.truncated,
-            method: nil, attempts: attempts, title: ax.title, url: ax.url, document: ax.document,
+            method: ax.lines.isEmpty ? nil : .accessibility, attempts: attempts, title: title, url: ax.url, document: ax.document,
             selectionCharacters: ax.selection?.count, nodes: ax.nodes, warnings: warnings
         )
     }
