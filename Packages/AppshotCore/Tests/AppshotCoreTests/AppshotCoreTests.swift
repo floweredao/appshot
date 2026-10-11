@@ -217,6 +217,16 @@ private func inboxLine(_ id: String, _ channel: String, _ text: String) -> Strin
         #expect(fired == [false, true, false, false, false, false, true])
     }
 
+    @Test func typingWithoutCommandDoesNotBlockNextPress() {
+        var detector = DualModifierDetector(side: .command)
+        detector.keyDown()
+        let fired = run(&detector, [leftCmd, leftCmd | rightCmd, 0])
+        detector.keyDown()
+        let again = run(&detector, [rightCmd, leftCmd | rightCmd])
+        #expect(fired == [false, true, false])
+        #expect(again == [false, true])
+    }
+
     @Test func chordWithKeyOrOtherModifierDoesNotFire() {
         var detector = DualModifierDetector(side: .command)
         _ = detector.flagsChanged(leftCmd)

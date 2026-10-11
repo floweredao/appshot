@@ -94,6 +94,7 @@ public struct DualModifierDetector: Sendable {
     public let side: ModifierSide
     private var fired = false
     private var poisoned = false
+    private var active = false
 
     public init(side: ModifierSide) {
         self.side = side
@@ -104,7 +105,8 @@ public struct DualModifierDetector: Sendable {
         let left = rawFlags & masks.left != 0
         let right = rawFlags & masks.right != 0
         let others = ModifierSide.allIndependent & ~side.independentMask
-        if !left && !right {
+        active = left || right
+        if !active {
             fired = false
             poisoned = false
             return false
@@ -116,7 +118,7 @@ public struct DualModifierDetector: Sendable {
     }
 
     public mutating func keyDown() {
-        poisoned = true
+        if active { poisoned = true }
     }
 }
 
