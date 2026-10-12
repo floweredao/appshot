@@ -365,7 +365,7 @@ final class AppController {
 
     func shoot() {
         guard !busy else { return }
-        guard let target = FrontWindow.find() else {
+        guard let target = settingsTarget() ?? FrontWindow.find() else {
             lastResult = String(localized: "No window to capture.")
             NSSound.beep()
             return
@@ -446,7 +446,22 @@ final class AppController {
 
     private func finish() {
         panel.close()
+        activeModel = nil
         busy = false
+    }
+
+    private func settingsTarget() -> TargetWindow? {
+        guard NSApp.isActive, let window = settingsWindow, window.isVisible, window.isKeyWindow,
+              let primary = NSScreen.screens.first else { return nil }
+        let frame = window.frame
+        return TargetWindow(
+            pid: ProcessInfo.processInfo.processIdentifier,
+            appName: "Appshot",
+            bundleID: Bundle.main.bundleIdentifier,
+            windowID: CGWindowID(window.windowNumber),
+            bounds: CGRect(x: frame.minX, y: primary.frame.maxY - frame.maxY, width: frame.width, height: frame.height),
+            title: window.title
+        )
     }
 
     nonisolated static func capture(_ target: TargetWindow) async -> CaptureResult {

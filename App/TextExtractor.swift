@@ -25,18 +25,19 @@ enum TextExtractor {
         var attempts: [String] = []
         var warnings: [String] = []
         var cached: AXSnapshot?
+        let ownFrame = target.pid == ProcessInfo.processInfo.processIdentifier ? target.bounds : nil
         func axSnapshot() async -> AXSnapshot {
             if let cached { return cached }
-            var snapshot = await Task.detached { AXCollector.snapshot(pid: target.pid, enhanceChromium: family == .chromium) }.value
+            var snapshot = await Task.detached { AXCollector.snapshot(pid: target.pid, enhanceChromium: family == .chromium, frame: ownFrame) }.value
             if snapshot.error == nil, snapshot.lines.reduce(0, { $0 + $1.text.count }) < minimumUseful {
                 try? await Task.sleep(for: .milliseconds(1200))
-                snapshot = await Task.detached { AXCollector.snapshot(pid: target.pid, enhanceChromium: false) }.value
+                snapshot = await Task.detached { AXCollector.snapshot(pid: target.pid, enhanceChromium: false, frame: ownFrame) }.value
             }
             if let error = snapshot.error { warnings.append(error) }
             cached = snapshot
             return snapshot
         }
-        let quick = await Task.detached { AXCollector.windowInfo(pid: target.pid) }.value
+        let quick = await Task.detached { AXCollector.windowInfo(pid: target.pid, frame: ownFrame) }.value
 
         for method in family.chain {
             let ax = method == .accessibility || method == .ocr ? await axSnapshot() : (cached ?? quick)

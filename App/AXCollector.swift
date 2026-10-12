@@ -84,11 +84,12 @@ enum AXCollector {
         return characters + visited
     }
 
-    static func windowInfo(pid: pid_t) -> AXSnapshot {
+    static func windowInfo(pid: pid_t, frame: CGRect? = nil) -> AXSnapshot {
         guard AXIsProcessTrusted() else { return AXSnapshot() }
         let app = AXUIElementCreateApplication(pid)
         AXUIElementSetMessagingTimeout(app, 0.3)
-        guard let window = element(app, kAXFocusedWindowAttribute) ?? element(app, kAXMainWindowAttribute) else { return AXSnapshot() }
+        guard let window = frame.flatMap({ Self.window(app, matching: $0) })
+            ?? element(app, kAXFocusedWindowAttribute) ?? element(app, kAXMainWindowAttribute) else { return AXSnapshot() }
         var info = AXSnapshot(title: string(window, kAXTitleAttribute), document: string(window, kAXDocumentAttribute))
         if let focused = element(app, kAXFocusedUIElementAttribute) {
             info.selection = string(focused, kAXSelectedTextAttribute)
@@ -101,7 +102,8 @@ enum AXCollector {
         maxNodes: Int = 40_000,
         maxDepth: Int = 150,
         budget: TimeInterval = 3,
-        enhanceChromium: Bool = false
+        enhanceChromium: Bool = false,
+        frame: CGRect? = nil
     ) -> AXSnapshot {
         guard AXIsProcessTrusted() else {
             return AXSnapshot(error: String(localized: "Accessibility permission is off, so window text could not be read."))
@@ -126,7 +128,8 @@ enum AXCollector {
         if switched || webEngine != .none {
             waitForTree(app, maxWait: switched ? 2.5 : 0.6)
         }
-        guard let window = element(app, kAXFocusedWindowAttribute)
+        guard let window = frame.flatMap({ Self.window(app, matching: $0) })
+            ?? element(app, kAXFocusedWindowAttribute)
             ?? element(app, kAXMainWindowAttribute)
             ?? elements(app, kAXWindowsAttribute).first
         else { return AXSnapshot(error: String(localized: "Could not find the window through Accessibility.")) }
@@ -190,6 +193,17 @@ enum AXCollector {
             for child in children.reversed() { stack.append((child, depth + 1, heading)) }
         }
         return snapshot
+    }
+
+    private static func window(_ app: AXUIElement, matching frame: CGRect) -> AXUIElement? {
+        elements(app, kAXWindowsAttribute).first { window in
+            guard let position = copy(window, kAXPositionAttribute), let size = copy(window, kAXSizeAttribute) else { return false }
+            var point = CGPoint.zero
+            var extent = CGSize.zero
+            AXValueGetValue(position as! AXValue, .cgPoint, &point)
+            AXValueGetValue(size as! AXValue, .cgSize, &extent)
+            return abs(point.x - frame.minX) < 3 && abs(point.y - frame.minY) < 3 && abs(extent.width - frame.width) < 3
+        }
     }
 
     private static func label(_ values: [String: Any]) -> String? {
