@@ -48,6 +48,8 @@ Pick where an appshot goes in the panel with ⌘K. Appshot remembers the last ta
 | **Share…** | Opens the macOS Share menu (Mail, Messages, AirDrop, …) with the screenshot and text. |
 | **Custom command** | Runs a shell command, opens a URL scheme, or POSTs JSON to a webhook. Placeholders: `{folder}` `{note}` `{app}` `{title}` `{url}` `{screenshot}` `{preview}` `{text}` `{channel}`. Shell values are quoted, and `APPSHOT_*` environment variables are set. |
 
+**Discord channels.** When you add the Discord app as a paste target, Appshot reads the channels the Discord app shows (through Accessibility) and lists them in the picker, grouped by server. Choosing one opens that channel in Discord and pastes there. Open a server in Discord once so its channels appear; **Settings… › Read Channels** reads them again. The list is kept in `~/Library/Application Support/Appshot/app-channels.json`.
+
 Turn targets on or off, add apps, and write commands in **Settings… › Send targets**. Example command: `open -a Preview {screenshot}`.
 
 ### Favorites and number shortcuts
@@ -116,7 +118,9 @@ Appshot tries the method that returns the most text first, falls back to the nex
 | --- | --- | --- | --- |
 | Safari, Chrome, Arc, Brave, Edge | Page script: `document.body.innerText`, URL, selection | Accessibility tree (Chromium is asked to expose its full tree) | OCR |
 | Terminal, iTerm2 | Scrollback through AppleScript | Accessibility | OCR |
-| Everything else (Mail, Notes, Xcode, Slack, Discord…) | Accessibility tree, all children including off-screen ones | OCR | |
+| Everything else (Mail, Notes, Xcode, Slack, Discord, Ghostty…) | Accessibility tree, all children including off-screen ones | OCR | |
+
+Terminals that draw their own text, such as Ghostty, expose only the screen that is currently visible through Accessibility, so the scrollback above it is not included. Appshot's own Settings window can be captured too: press the shortcut while it is in front.
 
 Text is capped at 200,000 characters. Very long pages keep their beginning and end, with a note saying how much was left out. Password fields are never read. Some apps only draw text as pixels (for example, Google Docs uses a canvas). For those apps, only the visible part is available, through OCR.
 
