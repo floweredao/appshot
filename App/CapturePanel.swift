@@ -169,6 +169,16 @@ final class CapturePanel: NSPanel {
     }
 
     static let margin: CGFloat = 24
+    static let resizeDuration: CFTimeInterval = 0.28
+    private var resizeTimer: Timer?
+    private var resizeTarget: NSRect?
+
+    static func interpolate(_ from: NSRect, _ to: NSRect, _ t: CGFloat) -> NSRect {
+        NSRect(
+            x: from.minX + (to.minX - from.minX) * t, y: from.minY + (to.minY - from.minY) * t,
+            width: from.width + (to.width - from.width) * t, height: from.height + (to.height - from.height) * t
+        ).integral
+    }
 
     static func placement(for size: NSSize, in visible: NSRect) -> NSRect {
         let x = visible.midX - size.width / 2
@@ -185,18 +195,30 @@ final class CapturePanel: NSPanel {
             return
         }
         let target = Self.placement(for: size, in: visible)
-        guard target != frame else { return }
+        guard target != frame, target != resizeTarget || resizeTimer?.isValid != true else { return }
+        resizeTarget = target
         if NSWorkspace.shared.accessibilityDisplayShouldReduceMotion {
+            resizeTimer?.invalidate()
             setFrame(target, display: true)
             invalidateShadow()
             return
         }
-        NSAnimationContext.runAnimationGroup { context in
-            context.duration = 0.28
-            context.timingFunction = CAMediaTimingFunction(controlPoints: 0.2, 0.9, 0.25, 1)
-            animator().setFrame(target, display: true)
-        } completionHandler: { [weak self] in
-            MainActor.assumeIsolated { self?.invalidateShadow() }
+        let start = frame
+        let began = CACurrentMediaTime()
+        resizeTimer?.invalidate()
+        let timer = Timer(timeInterval: 1.0 / 120.0, repeats: true) { [weak self] _ in
+            MainActor.assumeIsolated { self?.stepResize(from: start, to: target, began: began) }
+        }
+        RunLoop.main.add(timer, forMode: .common)
+        resizeTimer = timer
+    }
+
+    private func stepResize(from start: NSRect, to target: NSRect, began: CFTimeInterval) {
+        let progress = min(1, (CACurrentMediaTime() - began) / Self.resizeDuration)
+        setFrame(Self.interpolate(start, target, 1 - pow(1 - progress, 3)), display: true)
+        if progress >= 1 {
+            resizeTimer?.invalidate()
+            invalidateShadow()
         }
     }
 
@@ -252,11 +274,15 @@ final class PanelController {
         panel.model = model
         let host = NSHostingView(rootView: PanelView(model: model))
         host.sizingOptions = []
-        host.wantsLayer = true
-        host.layer?.cornerRadius = PanelView.cornerRadius
-        host.layer?.masksToBounds = true
-        panel.contentView = host
+        host.autoresizingMask = [.width, .height]
+        let container = NSView()
+        container.wantsLayer = true
+        container.layer?.cornerRadius = PanelView.cornerRadius
+        container.layer?.masksToBounds = true
+        container.addSubview(host)
+        panel.contentView = container
         panel.setContentSize(NSHostingView(rootView: PanelView(model: model)).fittingSize)
+        host.frame = container.bounds
         position(panel, near: bounds)
         model.onContentSize = { [weak panel] size in
             DispatchQueue.main.async { panel?.settle(contentSize: size) }
