@@ -228,8 +228,8 @@ final class CapturePanel: NSPanel {
     }
 
     override func performKeyEquivalent(with event: NSEvent) -> Bool {
-        let flags = event.modifierFlags.intersection(.deviceIndependentFlagsMask)
-        if event.type == .keyDown, Int(event.keyCode) == kVK_ANSI_K, flags.contains(.command), let model {
+        let flags = event.modifierFlags.intersection([.command, .option, .control, .shift])
+        if event.type == .keyDown, Int(event.keyCode) == kVK_ANSI_K, flags == .command, let model {
             MainActor.assumeIsolated { model.togglePicker() }
             return true
         }
@@ -248,14 +248,14 @@ final class CapturePanel: NSPanel {
 
     override func sendEvent(_ event: NSEvent) {
         guard event.type == .keyDown, let model else { return super.sendEvent(event) }
-        let flags = event.modifierFlags.intersection(.deviceIndependentFlagsMask)
+        let flags = event.modifierFlags.intersection([.command, .option, .control, .shift])
         MainActor.assumeIsolated {
             switch Int(event.keyCode) {
             case kVK_Escape:
                 model.escape()
             case kVK_Return, kVK_ANSI_KeypadEnter:
                 model.submit()
-            case kVK_ANSI_K where flags.contains(.command):
+            case kVK_ANSI_K where flags == .command:
                 model.togglePicker()
             case kVK_DownArrow where model.pickerOpen:
                 model.move(1)
