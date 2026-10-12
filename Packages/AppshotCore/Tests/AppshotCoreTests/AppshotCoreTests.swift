@@ -173,6 +173,27 @@ private func inboxLine(_ id: String, _ channel: String, _ text: String) -> Strin
         #expect(decoded.height == 490)
     }
 
+    @Test func transparentCornersBecomeWhiteNotBlackInJPEG() throws {
+        for size in [(400, 300), (3200, 2000)] {
+            let context = CGContext(
+                data: nil, width: size.0, height: size.1, bitsPerComponent: 8, bytesPerRow: 0,
+                space: CGColorSpace(name: CGColorSpace.sRGB)!, bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue
+            )!
+            context.setFillColor(CGColor(red: 1, green: 0, blue: 0, alpha: 1))
+            context.fill(CGRect(x: 40, y: 40, width: size.0 - 80, height: size.1 - 80))
+            let data = try #require(ImageEncoding.jpeg(context.makeImage()!))
+            let source = try #require(CGImageSourceCreateWithData(data as CFData, nil))
+            let decoded = try #require(CGImageSourceCreateImageAtIndex(source, 0, nil))
+            let pixel = CGContext(
+                data: nil, width: 1, height: 1, bitsPerComponent: 8, bytesPerRow: 4,
+                space: CGColorSpace(name: CGColorSpace.sRGB)!, bitmapInfo: CGImageAlphaInfo.noneSkipLast.rawValue
+            )!
+            pixel.draw(decoded, in: CGRect(x: 0, y: 0, width: decoded.width, height: decoded.height))
+            let rgb = try #require(pixel.data).assumingMemoryBound(to: UInt8.self)
+            #expect(rgb[0] > 240 && rgb[1] > 240 && rgb[2] > 240, "corner \(rgb[0]),\(rgb[1]),\(rgb[2]) at \(size)")
+        }
+    }
+
     @Test func smallImageIsNotUpscaled() throws {
         let small = image(width: 800, height: 600)
         #expect(ImageEncoding.downscale(small, maxLongEdge: 1568)?.width == 800)

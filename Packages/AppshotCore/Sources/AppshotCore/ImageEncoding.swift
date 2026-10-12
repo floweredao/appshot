@@ -12,7 +12,8 @@ public enum ImageEncoding {
 
     public static func jpeg(_ image: CGImage, maxLongEdge: Int = jpegLongEdge, quality: Double = 0.85) -> Data? {
         let scaled = downscale(image, maxLongEdge: maxLongEdge) ?? image
-        return encode(scaled, type: .jpeg, properties: [kCGImageDestinationLossyCompressionQuality: quality])
+        let opaque = flattened(scaled) ?? scaled
+        return encode(opaque, type: .jpeg, properties: [kCGImageDestinationLossyCompressionQuality: quality])
     }
 
     public static func downscale(_ image: CGImage, maxLongEdge: Int) -> CGImage? {
@@ -24,10 +25,24 @@ public enum ImageEncoding {
         guard let context = CGContext(
             data: nil, width: width, height: height, bitsPerComponent: 8, bytesPerRow: 0,
             space: CGColorSpace(name: CGColorSpace.sRGB)!,
-            bitmapInfo: CGImageAlphaInfo.noneSkipLast.rawValue
+            bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue
         ) else { return nil }
         context.interpolationQuality = .high
         context.draw(image, in: CGRect(x: 0, y: 0, width: width, height: height))
+        return context.makeImage()
+    }
+
+    /// JPEG has no alpha: transparent window corners would turn black, so they are painted white first.
+    public static func flattened(_ image: CGImage) -> CGImage? {
+        guard let context = CGContext(
+            data: nil, width: image.width, height: image.height, bitsPerComponent: 8, bytesPerRow: 0,
+            space: CGColorSpace(name: CGColorSpace.sRGB)!,
+            bitmapInfo: CGImageAlphaInfo.noneSkipLast.rawValue
+        ) else { return nil }
+        let rect = CGRect(x: 0, y: 0, width: image.width, height: image.height)
+        context.setFillColor(CGColor(srgbRed: 1, green: 1, blue: 1, alpha: 1))
+        context.fill(rect)
+        context.draw(image, in: rect)
         return context.makeImage()
     }
 

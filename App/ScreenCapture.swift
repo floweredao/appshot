@@ -27,6 +27,7 @@ enum ScreenCapture {
         configuration.height = max(1, Int((filter.contentRect.height * scale).rounded()))
         configuration.showsCursor = false
         configuration.ignoreShadowsSingleWindow = true
+        configuration.backgroundColor = .clear
         configuration.captureResolution = .best
         return try await SCScreenshotManager.captureImage(contentFilter: filter, configuration: configuration)
     }
