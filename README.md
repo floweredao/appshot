@@ -77,6 +77,18 @@ To include whole web pages, also allow **Automation** when macOS asks whether Ap
 
 <p align="center"><img src="docs/settings-en-light.png" width="560" alt="Settings window"></p>
 
+### Updates
+
+Appshot checks the [latest GitHub release](https://github.com/floweredao/appshot/releases/latest) once a day and when you choose **Check for Updates…** in the menu bar menu. When a newer version is out, click **Install and Restart**. Turn automatic checks off in **Settings… › Updates**.
+
+Before it replaces itself, Appshot checks the download and installs nothing if any check fails, showing the reason instead:
+
+- It talks only to `api.github.com/repos/floweredao/appshot` and downloads only this repository's release assets, over HTTPS.
+- The zip's SHA-256 must match the checksum GitHub publishes for the release asset.
+- The app inside must have the same bundle ID, the same developer team, and the same signing certificate as the copy you are running, and a higher version.
+
+Keep Appshot in a folder you can write to, such as `/Applications`. Updating from 0.3.2 or earlier is a one-time manual download.
+
 ## Shortcut
 
 The default is **both ⌘ keys pressed together**. To change it, open **Settings…** from the menu bar icon and click the shortcut field. Then do one of these:
