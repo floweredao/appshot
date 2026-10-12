@@ -36,6 +36,22 @@
         }
       }
     },
+    "%@ did not open the channel.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ did not open the channel."
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@에서 채널이 열리지 않았어요."
+          }
+        }
+      }
+    },
     "%lld characters": {
       "localizations": {
         "en": {
@@ -48,6 +64,22 @@
           "stringUnit": {
             "state": "translated",
             "value": "%lld자"
+          }
+        }
+      }
+    },
+    "%lld servers · %lld channels": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld servers · %lld channels"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "서버 %lld개 · 채널 %lld개"
           }
         }
       }
@@ -279,6 +311,22 @@
         }
       }
     },
+    "Appshot reads channels from the Discord app. Open a server in Discord once to add its channels.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Appshot reads channels from the Discord app. Open a server in Discord once to add its channels."
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "디스코드 앱에서 채널 목록을 읽어요. 디스코드에서 서버를 한 번 열면 그 서버의 채널이 추가돼요."
+          }
+        }
+      }
+    },
     "Ask %@ about this window (optional)": {
       "localizations": {
         "en": {
@@ -291,6 +339,22 @@
           "stringUnit": {
             "state": "translated",
             "value": "이 창에 대해 %@에게 물어보세요 (선택)"
+          }
+        }
+      }
+    },
+    "Assistant destinations come from the config file. Pick a target in the panel with ⌘K; Appshot remembers the last one.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Assistant destinations come from the config file. Pick a target in the panel with ⌘K; Appshot remembers the last one."
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "비서 보낼 곳은 설정 파일에서 와요. 입력창에서 ⌘K로 대상을 고르면 마지막에 쓴 대상을 기억해요."
           }
         }
       }
@@ -695,6 +759,22 @@
         }
       }
     },
+    "Direct Messages": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Direct Messages"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "다이렉트 메시지"
+          }
+        }
+      }
+    },
     "Discord destinations": {
       "localizations": {
         "en": {
@@ -707,22 +787,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "디스코드 보낼 곳"
-          }
-        }
-      }
-    },
-    "Discord destinations come from the config file. Pick a target in the panel with ⌘K; Appshot remembers the last one.": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Discord destinations come from the config file. Pick a target in the panel with ⌘K; Appshot remembers the last one."
-          }
-        },
-        "ko": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "디스코드 보낼 곳은 설정 파일에서 와요. 입력창에서 ⌘K로 대상을 고르면 마지막에 쓴 대상을 기억해요."
           }
         }
       }
@@ -1207,6 +1271,22 @@
         }
       }
     },
+    "Pasted into %@ in %@.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pasted into %1$@ in %2$@."
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%2$@의 %1$@에 붙여 넣었어요."
+          }
+        }
+      }
+    },
     "Pasted into %@.": {
       "localizations": {
         "en": {
@@ -1379,6 +1459,22 @@
           "stringUnit": {
             "state": "translated",
             "value": "%@을(를) 실행했어요."
+          }
+        }
+      }
+    },
+    "Read Channels": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Read Channels"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "채널 읽기"
           }
         }
       }

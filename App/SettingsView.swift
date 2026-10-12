@@ -318,7 +318,7 @@ private struct TargetsSection: View {
         } header: {
             Text("Send targets")
         } footer: {
-            Text("Discord destinations come from the config file. Pick a target in the panel with ⌘K; Appshot remembers the last one.")
+            Text("Assistant destinations come from the config file. Pick a target in the panel with ⌘K; Appshot remembers the last one.")
                 .font(.caption).foregroundStyle(.secondary)
         }
 
@@ -353,6 +353,9 @@ private struct TargetsSection: View {
                     }
                     .buttonStyle(.borderless)
                     .accessibilityLabel(Text("Remove"))
+                }
+                if DiscordLink.isDiscord(bundleID: app.bundleID) {
+                    DiscordChannelsRow(controller: controller, app: app)
                 }
             }
             HStack {
@@ -422,6 +425,30 @@ private struct TargetsSection: View {
             get: { controller.targetSettings[keyPath: keyPath] },
             set: { value in controller.updateTargets { $0[keyPath: keyPath] = value } }
         )
+    }
+}
+
+private struct DiscordChannelsRow: View {
+    let controller: AppController
+    let app: AppTarget
+
+    var body: some View {
+        let channels = controller.appChannels.channels(for: app.bundleID).count
+        let servers = controller.appChannels.servers(for: app.bundleID)
+        HStack(alignment: .center, spacing: 10) {
+            VStack(alignment: .leading, spacing: 2) {
+                Text("\(servers) servers · \(channels) channels").monospacedDigit()
+                Text("Appshot reads channels from the Discord app. Open a server in Discord once to add its channels.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            .padding(.leading, 28)
+            Spacer()
+            if controller.appChannelsReading { ProgressView().controlSize(.small) }
+            Button("Read Channels", action: controller.readAppChannels)
+                .disabled(controller.appChannelsReading)
+        }
     }
 }
 

@@ -642,7 +642,7 @@ struct DestinationIcon: View {
     private var symbol: String {
         switch kind {
         case .direct: "person.crop.circle.fill"
-        case .channel: "number"
+        case .channel, .appChannel: "number"
         case .thread: "bubble.left.and.text.bubble.right"
         case .clipboard: "doc.on.clipboard"
         case .folder: "folder"
@@ -692,7 +692,7 @@ enum DestinationSubtitle {
         case .share: String(localized: "Mail, Messages, AirDrop…")
         case .app: String(localized: "Open and paste")
         case .command: String(localized: "Custom command")
-        case .direct, .channel, .thread: nil
+        case .direct, .channel, .thread, .appChannel: nil
         }
     }
 }

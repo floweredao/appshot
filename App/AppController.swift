@@ -26,6 +26,8 @@ final class AppController {
     private(set) var launchAtLogin = false
     private(set) var lastResult: String?
     private(set) var targetsRevision = 0
+    private(set) var appChannels = AppChannelBook.load(from: AppController.appChannelsURL)
+    private(set) var appChannelsReading = false
     @ObservationIgnored private let sharePresenter = SharePresenter()
     var recordingShortcut = false {
         didSet { recordingShortcut ? hotkey.stop() : applyShortcut() }
@@ -37,6 +39,7 @@ final class AppController {
     @ObservationIgnored private var busy = false
     @ObservationIgnored private var configURL = AppshotConfig.defaultURL
     @ObservationIgnored private var refreshTimer: Timer?
+    @ObservationIgnored private weak var activeModel: PanelModel?
 
     private static let shortcutKey = "shortcut"
     private static let onboardedKey = "onboarded"
@@ -69,6 +72,7 @@ final class AppController {
         }
         applyShortcut()
         refreshCatalogIfNeeded()
+        readAppChannels()
         refreshTimer = Timer.scheduledTimer(withTimeInterval: 300, repeats: true) { [weak self] _ in
             MainActor.assumeIsolated { self?.refreshCatalogIfNeeded() }
         }
@@ -242,9 +246,31 @@ final class AppController {
             targets: targetSettings.destinations(
                 clipboardName: String(localized: "Copy to Clipboard"),
                 folderName: String(localized: "Save to Folder…"),
-                shareName: String(localized: "Share…")
+                shareName: String(localized: "Share…"),
+                channels: appChannels
             )
         )
+    }
+
+    static var appChannelsURL: URL {
+        FileManager.default.homeDirectoryForCurrentUser.appending(path: "Library/Application Support/Appshot/app-channels.json")
+    }
+
+    func readAppChannels() {
+        let apps = targetSettings.apps.map(\.bundleID).filter(DiscordLink.isDiscord(bundleID:))
+        guard !apps.isEmpty, !appChannelsReading else { return }
+        appChannelsReading = true
+        let directMessages = String(localized: "Direct Messages")
+        Task {
+            let found = await Task.detached(priority: .utility) {
+                apps.flatMap { DiscordReader.channels(bundleID: $0, directMessages: directMessages) }
+            }.value
+            appChannelsReading = false
+            guard appChannels.merge(found) else { return }
+            try? appChannels.save(to: Self.appChannelsURL)
+            targetsRevision += 1
+            if let model = activeModel { model.index = destinationIndex(config) }
+        }
     }
 
     var targetSettings: TargetSettings {
@@ -272,6 +298,7 @@ final class AppController {
         updateTargets { settings in
             if !settings.apps.contains(where: { $0.bundleID == id }) { settings.apps.append(AppTarget(bundleID: id, name: name)) }
         }
+        readAppChannels()
     }
 
     static var capturesURL: URL {
@@ -318,6 +345,15 @@ final class AppController {
             beforeInteractive()
             try await TargetDelivery.paste(payload, into: app)
             return String(localized: "Pasted into \(app.name).")
+        case .appChannel:
+            guard let app = settings.app(forChannel: destination.id), let channel = appChannels.channel(for: destination.id),
+                  let link = DiscordLink.deepLink(server: channel.server, channel: channel.channel)
+            else { throw DeliveryError.appNotFound(destination.title) }
+            beforeInteractive()
+            try await TargetDelivery.paste(payload, into: app, opening: link) {
+                DiscordReader.currentChannel(bundleID: app.bundleID) == channel.channel
+            }
+            return String(localized: "Pasted into \(destination.title) in \(app.name).")
         case .command:
             guard let command = settings.command(for: destination.id) else { throw DeliveryError.badURL }
             try await TargetDelivery.run(command, payload: payload)
@@ -337,6 +373,7 @@ final class AppController {
         busy = true
         reloadConfig()
         refreshCatalogIfNeeded()
+        readAppChannels()
         let model = PanelModel(appName: target.appName, appIcon: NSRunningApplication(processIdentifier: target.pid)?.icon)
         model.previewAspect = target.bounds.height > 0 ? target.bounds.width / target.bounds.height : 1.6
         let index = destinationIndex(config)
@@ -391,6 +428,7 @@ final class AppController {
                 }
             }
         }
+        activeModel = model
         panel.show(model, near: target.bounds)
         Task {
             let result = await capture.value

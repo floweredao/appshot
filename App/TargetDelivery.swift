@@ -28,6 +28,7 @@ struct DeliveryPayload: Sendable {
 enum DeliveryError: Error, CustomStringConvertible {
     case appNotFound(String)
     case appDidNotActivate(String)
+    case channelDidNotOpen(String)
     case command(Int32, String)
     case badURL
     case http(Int)
@@ -37,6 +38,7 @@ enum DeliveryError: Error, CustomStringConvertible {
         switch self {
         case .appNotFound(let name): String(localized: "Could not find \(name).")
         case .appDidNotActivate(let name): String(localized: "\(name) did not come to the front.")
+        case .channelDidNotOpen(let name): String(localized: "\(name) did not open the channel.")
         case .command(let code, let output): String(localized: "The command failed (\(code)): \(output)")
         case .badURL: String(localized: "The URL template did not produce a valid URL.")
         case .http(let status): String(localized: "The webhook answered with HTTP \(status).")
@@ -84,19 +86,33 @@ enum TargetDelivery {
         return target
     }
 
-    static func paste(_ payload: DeliveryPayload, into app: AppTarget) async throws {
+    static func paste(
+        _ payload: DeliveryPayload, into app: AppTarget, opening link: URL? = nil, ready: (@Sendable () -> Bool)? = nil
+    ) async throws {
         guard let appURL = NSWorkspace.shared.urlForApplication(withBundleIdentifier: app.bundleID) else {
             throw DeliveryError.appNotFound(app.name)
         }
         let configuration = NSWorkspace.OpenConfiguration()
         configuration.activates = true
-        _ = try? await NSWorkspace.shared.openApplication(at: appURL, configuration: configuration)
+        if let link {
+            _ = try? await NSWorkspace.shared.open([link], withApplicationAt: appURL, configuration: configuration)
+        } else {
+            _ = try? await NSWorkspace.shared.openApplication(at: appURL, configuration: configuration)
+        }
         var waited = 0
         while NSWorkspace.shared.frontmostApplication?.bundleIdentifier != app.bundleID {
             if waited >= 40 { throw DeliveryError.appDidNotActivate(app.name) }
             NSRunningApplication.runningApplications(withBundleIdentifier: app.bundleID).first?.activate()
             try await Task.sleep(for: .milliseconds(100))
             waited += 1
+        }
+        if let ready {
+            var checks = 0
+            while !(await Task.detached(operation: ready).value) {
+                if checks >= 30 { throw DeliveryError.channelDidNotOpen(app.name) }
+                try await Task.sleep(for: .milliseconds(100))
+                checks += 1
+            }
         }
         try await Task.sleep(for: .milliseconds(waited > 0 ? 700 : 300))
 

@@ -93,6 +93,7 @@ public struct Destination: Sendable, Hashable, Identifiable {
     public enum Kind: String, Sendable, Hashable {
         case direct, channel, thread
         case clipboard, folder, share, app, command
+        case appChannel
 
         public var isAssistant: Bool { self == .direct || self == .channel || self == .thread }
     }
@@ -114,6 +115,7 @@ public struct Destination: Sendable, Hashable, Identifiable {
     public var title: String {
         switch kind {
         case .channel: "#\(name)"
+        case .appChannel: id.contains("/channels/\(DiscordLink.directMessages)/") ? name : "#\(name)"
         default: name
         }
     }
@@ -122,6 +124,7 @@ public struct Destination: Sendable, Hashable, Identifiable {
         switch kind {
         case .channel: server
         case .thread: [server, parent.map { "#\($0)" }].compactMap { $0 }.joined(separator: " › ")
+        case .appChannel: [parent, server].compactMap { $0 }.joined(separator: " › ")
         default: nil
         }
     }
@@ -203,10 +206,20 @@ public struct DestinationIndex: Sendable {
         var sections: [Section] = []
         if !favoriteItems.isEmpty { sections.append(Section(id: "favorites", title: nil, items: favoriteItems)) }
         if !recentItems.isEmpty { sections.append(Section(id: "recent", title: nil, items: recentItems)) }
-        let targetItems = all.filter { !$0.kind.isAssistant && !recentIDs.contains($0.id) }
+        let targetItems = all.filter { !$0.kind.isAssistant && $0.kind != .appChannel && !recentIDs.contains($0.id) }
         if !targetItems.isEmpty { sections.append(Section(id: "targets", title: nil, items: targetItems)) }
         var order: [String] = []
         var grouped: [String: [Destination]] = [:]
+        for item in all where item.kind == .appChannel && !recentIDs.contains(item.id) {
+            let key = [item.parent, item.server].compactMap { $0 }.joined(separator: " · ")
+            if grouped[key] == nil { order.append(key) }
+            grouped[key, default: []].append(item)
+        }
+        for key in order {
+            sections.append(Section(id: "app:\(key)", title: key.isEmpty ? nil : key, items: grouped[key] ?? []))
+        }
+        order = []
+        grouped = [:]
         for item in all where item.kind.isAssistant && !recentIDs.contains(item.id) {
             let key = item.server ?? ""
             if grouped[key] == nil { order.append(key) }

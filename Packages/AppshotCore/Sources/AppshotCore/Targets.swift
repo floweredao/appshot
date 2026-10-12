@@ -58,9 +58,14 @@ public struct TargetSettings: Codable, Sendable, Equatable {
         return value
     }
 
-    public func destinations(clipboardName: String, folderName: String, shareName: String) -> [Destination] {
+    public func destinations(
+        clipboardName: String, folderName: String, shareName: String, channels: AppChannelBook = AppChannelBook()
+    ) -> [Destination] {
         var items: [Destination] = []
-        for app in apps { items.append(Destination(id: TargetID.app(app.bundleID), name: app.name, kind: .app)) }
+        for app in apps {
+            items.append(Destination(id: TargetID.app(app.bundleID), name: app.name, kind: .app))
+            items.append(contentsOf: channels.destinations(for: app))
+        }
         if clipboard { items.append(Destination(id: TargetID.clipboard, name: clipboardName, kind: .clipboard)) }
         if folder { items.append(Destination(id: TargetID.folder, name: folderName, kind: .folder)) }
         if share { items.append(Destination(id: TargetID.share, name: shareName, kind: .share)) }
@@ -70,6 +75,10 @@ public struct TargetSettings: Codable, Sendable, Equatable {
 
     public func app(for id: String) -> AppTarget? {
         apps.first { TargetID.app($0.bundleID) == id }
+    }
+
+    public func app(forChannel id: String) -> AppTarget? {
+        apps.first { id.hasPrefix(TargetID.app($0.bundleID) + "/channels/") }
     }
 
     public func command(for id: String) -> CommandTarget? {
@@ -83,6 +92,9 @@ public enum TargetID {
     public static let share = "target:share"
     public static func app(_ bundleID: String) -> String { "target:app:\(bundleID)" }
     public static func command(_ id: String) -> String { "target:command:\(id)" }
+    public static func appChannel(_ bundleID: String, server: String, channel: String) -> String {
+        "\(app(bundleID))/channels/\(server)/\(channel)"
+    }
 }
 
 public enum CommandTemplate {
