@@ -41,6 +41,8 @@ final class PanelModel {
     var highlighted = 0
     var focus: Field = .note
     var renderMode = false
+    var previewCap = PreviewView.maxHeight
+    var onContentSize: (CGSize) -> Void = { _ in }
 
     var onSend: () -> Void = {}
     var onCancel: () -> Void = {}
@@ -68,7 +70,20 @@ final class PanelModel {
 
     func closePicker() {
         pickerOpen = false
+        previewCap = PreviewView.maxHeight
         focus = .note
+    }
+
+    var previewHeight: CGFloat {
+        let natural = (PanelView.width - PanelView.inset * 2) / max(previewAspect, 0.2)
+        return min(previewCap, max(PreviewView.minHeight, natural))
+    }
+
+    func shrinkPreview(by overflow: CGFloat) -> Bool {
+        let room = previewHeight - PreviewView.minHeight
+        guard overflow > 0, room > 0 else { return false }
+        previewCap = previewHeight - min(overflow, room)
+        return true
     }
 
     func togglePicker() {
@@ -153,11 +168,36 @@ final class CapturePanel: NSPanel {
         }
     }
 
-    override func setFrame(_ frameRect: NSRect, display flag: Bool) {
-        var rect = frameRect
-        if isVisible { rect.origin.y = frame.maxY - rect.height }
-        super.setFrame(rect, display: flag)
-        invalidateShadow()
+    static let margin: CGFloat = 24
+
+    static func placement(for size: NSSize, in visible: NSRect) -> NSRect {
+        let x = visible.midX - size.width / 2
+        let slack = visible.height - size.height - margin * 2
+        guard slack > 0 else { return NSRect(x: x, y: visible.maxY - margin - size.height, width: size.width, height: size.height) }
+        let lift = min(visible.height * 0.08, slack / 2)
+        let y = visible.midY - size.height / 2 + lift
+        return NSRect(x: x, y: y, width: size.width, height: size.height)
+    }
+
+    func settle(contentSize size: CGSize) {
+        guard isVisible, size.width > 0, size.height > 0, let visible = (screen ?? NSScreen.main)?.visibleFrame else { return }
+        if let model, MainActor.assumeIsolated({ model.shrinkPreview(by: size.height - (visible.height - Self.margin * 2)) }) {
+            return
+        }
+        let target = Self.placement(for: size, in: visible)
+        guard target != frame else { return }
+        if NSWorkspace.shared.accessibilityDisplayShouldReduceMotion {
+            setFrame(target, display: true)
+            invalidateShadow()
+            return
+        }
+        NSAnimationContext.runAnimationGroup { context in
+            context.duration = 0.28
+            context.timingFunction = CAMediaTimingFunction(controlPoints: 0.2, 0.9, 0.25, 1)
+            animator().setFrame(target, display: true)
+        } completionHandler: { [weak self] in
+            MainActor.assumeIsolated { self?.invalidateShadow() }
+        }
     }
 
     override func performKeyEquivalent(with event: NSEvent) -> Bool {
@@ -204,26 +244,33 @@ final class CapturePanel: NSPanel {
 @MainActor
 final class PanelController {
     private var panel: CapturePanel?
+    private var host: NSHostingView<PanelView>?
 
     func show(_ model: PanelModel, near bounds: CGRect?) {
         close()
         let panel = CapturePanel()
         panel.model = model
-        let host = NSHostingController(rootView: PanelView(model: model))
-        host.sizingOptions = [.preferredContentSize]
-        panel.contentViewController = host
-        host.view.wantsLayer = true
-        host.view.layer?.cornerRadius = PanelView.cornerRadius
-        host.view.layer?.masksToBounds = true
-        panel.setContentSize(host.view.fittingSize)
+        let host = NSHostingView(rootView: PanelView(model: model))
+        host.sizingOptions = []
+        host.wantsLayer = true
+        host.layer?.cornerRadius = PanelView.cornerRadius
+        host.layer?.masksToBounds = true
+        panel.contentView = host
+        panel.setContentSize(NSHostingView(rootView: PanelView(model: model)).fittingSize)
         position(panel, near: bounds)
+        model.onContentSize = { [weak panel] size in
+            DispatchQueue.main.async { panel?.settle(contentSize: size) }
+        }
         panel.makeKeyAndOrderFront(nil)
         self.panel = panel
+        self.host = host
     }
 
     func close() {
         panel?.orderOut(nil)
+        panel?.model?.onContentSize = { _ in }
         panel = nil
+        host = nil
     }
 
     var isVisible: Bool { panel?.isVisible ?? false }
@@ -238,9 +285,7 @@ final class PanelController {
             }
         } ?? NSScreen.main
         guard let visible = (screen ?? NSScreen.main)?.visibleFrame else { return }
-        let size = panel.frame.size
-        let top = visible.maxY - visible.height * 0.16
-        panel.setFrameOrigin(NSPoint(x: visible.midX - size.width / 2, y: max(visible.minY + 20, top - size.height)))
+        panel.setFrame(CapturePanel.placement(for: panel.frame.size, in: visible), display: false)
     }
 }
 
@@ -271,6 +316,9 @@ struct PanelView: View {
         }
         .padding(Self.inset)
         .frame(width: Self.width)
+        .fixedSize(horizontal: false, vertical: true)
+        .onGeometryChange(for: CGSize.self) { $0.size } action: { model.onContentSize($0) }
+        .frame(maxHeight: .infinity, alignment: .top)
         .background(PanelBackground(renderMode: model.renderMode))
         .clipShape(RoundedRectangle(cornerRadius: Self.cornerRadius, style: .continuous))
         .overlay(
@@ -453,14 +501,15 @@ private struct StatusChip: View {
     }
 }
 
-private struct PreviewView: View {
+struct PreviewView: View {
+    static let maxHeight: CGFloat = 330
+    static let minHeight: CGFloat = 150
+
     let model: PanelModel
-    private let maxHeight: CGFloat = 330
-    private let minHeight: CGFloat = 150
 
     var body: some View {
         let width = PanelView.width - PanelView.inset * 2
-        let height = min(maxHeight, max(minHeight, width / max(model.previewAspect, 0.2)))
+        let height = model.previewHeight
         ZStack {
             if let preview = model.preview {
                 Color.primary.opacity(0.06)
