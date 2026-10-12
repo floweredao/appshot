@@ -74,13 +74,18 @@ final class PanelModel {
         focus = .note
     }
 
-    var previewHeight: CGFloat {
-        let natural = (PanelView.width - PanelView.inset * 2) / max(previewAspect, 0.2)
-        return min(previewCap, max(PreviewView.minHeight, natural))
+    var previewSize: CGSize {
+        let maxWidth = PanelView.width - PanelView.inset * 2
+        let aspect = max(previewAspect, 0.2)
+        let height = min(previewCap, maxWidth / aspect)
+        return CGSize(width: min(maxWidth, height * aspect).rounded(), height: height.rounded())
     }
 
+    var previewHeight: CGFloat { previewSize.height }
+
     func shrinkPreview(by overflow: CGFloat) -> Bool {
-        let room = previewHeight - PreviewView.minHeight
+        let natural = (PanelView.width - PanelView.inset * 2) / max(previewAspect, 0.2)
+        let room = previewHeight - min(PreviewView.minHeight, natural)
         guard overflow > 0, room > 0 else { return false }
         previewCap = previewHeight - min(overflow, room)
         return true
@@ -344,7 +349,7 @@ struct PanelView: View {
         .frame(width: Self.width)
         .fixedSize(horizontal: false, vertical: true)
         .onGeometryChange(for: CGSize.self) { $0.size } action: { model.onContentSize($0) }
-        .frame(maxHeight: .infinity, alignment: .top)
+        .frame(minHeight: 0, maxHeight: .infinity, alignment: .top)
         .background(PanelBackground(renderMode: model.renderMode))
         .clipShape(RoundedRectangle(cornerRadius: Self.cornerRadius, style: .continuous))
         .overlay(
@@ -422,7 +427,7 @@ struct PanelView: View {
                 HStack(spacing: 8) {
                     if let destination = model.destination {
                         DestinationIcon(kind: destination.kind, id: destination.id)
-                        Text(destination.title).font(.system(size: 13.5, weight: .medium)).lineLimit(1)
+                        Text(destination.listTitle).font(.system(size: 13.5, weight: .medium)).lineLimit(1)
                         if let context = destination.context ?? DestinationSubtitle.text(destination) {
                             Text(context).font(.system(size: 12)).foregroundStyle(.secondary).lineLimit(1)
                         }
@@ -534,19 +539,26 @@ struct PreviewView: View {
     let model: PanelModel
 
     var body: some View {
+        if let preview = model.preview {
+            let size = model.previewSize
+            Image(nsImage: preview)
+                .resizable()
+                .interpolation(.high)
+                .scaledToFill()
+                .frame(width: size.width, height: size.height)
+                .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+                .frame(maxWidth: .infinity)
+                .accessibilityLabel(Text("Window screenshot"))
+        } else {
+            placeholder
+        }
+    }
+
+    private var placeholder: some View {
         let width = PanelView.width - PanelView.inset * 2
         let height = model.previewHeight
-        ZStack {
-            if let preview = model.preview {
-                Color.primary.opacity(0.06)
-                Image(nsImage: preview)
-                    .resizable()
-                    .interpolation(.high)
-                    .scaledToFit()
-                    .frame(maxWidth: width, maxHeight: height)
-                    .shadow(color: .black.opacity(0.25), radius: 6, y: 2)
-                    .accessibilityLabel(Text("Window screenshot"))
-            } else if model.phase == .capturing {
+        return ZStack {
+            if model.phase == .capturing {
                 Color.primary.opacity(0.05)
                 ProgressView()
             } else {
@@ -659,7 +671,7 @@ private struct DestinationRow: View {
         HStack(spacing: 9) {
             DestinationIcon(kind: item.kind, id: item.id)
                 .padding(.leading, item.kind == .thread ? 14 : 0)
-            Text(item.title).font(.system(size: 13.5)).lineLimit(1)
+            Text(item.listTitle).font(.system(size: 13.5)).lineLimit(1)
             if let context = item.context ?? DestinationSubtitle.text(item), item.kind != .channel {
                 Text(context).font(.system(size: 12)).foregroundStyle(highlighted ? .white.opacity(0.85) : .secondary).lineLimit(1)
             }
@@ -717,7 +729,8 @@ struct DestinationIcon: View {
     private var symbol: String {
         switch kind {
         case .direct: "person.crop.circle.fill"
-        case .channel, .appChannel: "number"
+        case .channel: "number"
+        case .appChannel: id.contains("/channels/\(DiscordLink.directMessages)/") ? "person.crop.circle.fill" : "number"
         case .thread: "bubble.left.and.text.bubble.right"
         case .clipboard: "doc.on.clipboard"
         case .folder: "folder"
