@@ -120,6 +120,15 @@ public struct Destination: Sendable, Hashable, Identifiable {
         }
     }
 
+    /// The title for rows that already draw a channel glyph, so the `#` is not shown twice.
+    public var listTitle: String {
+        kind == .channel || kind == .appChannel ? name : title
+    }
+
+    public var isDirectMessage: Bool {
+        kind == .direct || (kind == .appChannel && id.contains("/channels/\(DiscordLink.directMessages)/"))
+    }
+
     public var context: String? {
         switch kind {
         case .channel: server
