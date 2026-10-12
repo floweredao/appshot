@@ -28,16 +28,16 @@ enum TextExtractor {
         let ownFrame = target.pid == ProcessInfo.processInfo.processIdentifier ? target.bounds : nil
         func axSnapshot() async -> AXSnapshot {
             if let cached { return cached }
-            var snapshot = await Task.detached { AXCollector.snapshot(pid: target.pid, enhanceChromium: family == .chromium, frame: ownFrame) }.value
+            var snapshot = await readAX(own: ownFrame != nil) { AXCollector.snapshot(pid: target.pid, enhanceChromium: family == .chromium, frame: ownFrame) }
             if snapshot.error == nil, snapshot.lines.reduce(0, { $0 + $1.text.count }) < minimumUseful {
                 try? await Task.sleep(for: .milliseconds(1200))
-                snapshot = await Task.detached { AXCollector.snapshot(pid: target.pid, enhanceChromium: false, frame: ownFrame) }.value
+                snapshot = await readAX(own: ownFrame != nil) { AXCollector.snapshot(pid: target.pid, enhanceChromium: false, frame: ownFrame) }
             }
             if let error = snapshot.error { warnings.append(error) }
             cached = snapshot
             return snapshot
         }
-        let quick = await Task.detached { AXCollector.windowInfo(pid: target.pid, frame: ownFrame) }.value
+        let quick = await readAX(own: ownFrame != nil) { AXCollector.windowInfo(pid: target.pid, frame: ownFrame) }
 
         for method in family.chain {
             let ax = method == .accessibility || method == .ocr ? await axSnapshot() : (cached ?? quick)
@@ -137,6 +137,11 @@ enum TextExtractor {
             method: ax.lines.isEmpty ? nil : .accessibility, attempts: attempts, title: title, url: ax.url, document: ax.document,
             selectionCharacters: ax.selection?.count, nodes: ax.nodes, warnings: warnings
         )
+    }
+
+    private static func readAX(own: Bool, _ read: @escaping @Sendable () -> AXSnapshot) async -> AXSnapshot {
+        if own { return await MainActor.run { read() } }
+        return await Task.detached(operation: read).value
     }
 
     static func recognize(_ image: CGImage) -> String {

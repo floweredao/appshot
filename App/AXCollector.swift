@@ -111,9 +111,10 @@ enum AXCollector {
         let app = AXUIElementCreateApplication(pid)
         AXUIElementSetMessagingTimeout(app, 0.5)
         var restoreEnhanced = false
-        let webEngine = WebEngine.of(pid: pid)
+        let own = pid == ProcessInfo.processInfo.processIdentifier
+        let webEngine = own ? WebEngine.none : WebEngine.of(pid: pid)
         var switched = false
-        if (copy(app, "AXManualAccessibility") as? Bool) != true,
+        if !own, (copy(app, "AXManualAccessibility") as? Bool) != true,
            AXUIElementSetAttributeValue(app, "AXManualAccessibility" as CFString, kCFBooleanTrue) == .success {
             switched = true
         }
