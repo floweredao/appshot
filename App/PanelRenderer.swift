@@ -12,6 +12,8 @@ enum PanelRenderer {
         case "settings":
             let host = NSHostingView(rootView: SettingsView(controller: controller).frame(height: 760))
             view = host
+        case "updates":
+            view = NSHostingView(rootView: Form { UpdatesSection(updater: controller.updater) }.formStyle(.grouped).frame(width: 600, height: 240))
         default:
             let model = demoModel(request)
             if request.scene == "picker" {
@@ -36,7 +38,7 @@ enum PanelRenderer {
         view.display()
         guard let panelImage = snapshot(view, scale: 2) else { return 6 }
         window.orderOut(nil)
-        let composite = request.scene == "settings" ? panelImage : backdrop(panelImage, dark: request.dark, scale: 2)
+        let composite = request.scene == "settings" || request.scene == "updates" ? panelImage : backdrop(panelImage, dark: request.dark, scale: 2)
         guard let data = ImageEncoding.png(composite) else { return 7 }
         do {
             try data.write(to: URL(filePath: (request.output as NSString).expandingTildeInPath))

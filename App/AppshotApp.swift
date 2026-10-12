@@ -39,6 +39,8 @@ private struct MenuContent: View {
         Divider()
         Button("Settings…") { controller.showSettings() }
             .keyboardShortcut(",")
+        Button("Check for Updates…") { controller.updater.checkFromMenu() }
+            .disabled(controller.updater.isBusy)
         Divider()
         Button("Quit Appshot") { NSApp.terminate(nil) }
             .keyboardShortcut("q")

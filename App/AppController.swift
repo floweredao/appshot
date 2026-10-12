@@ -29,6 +29,7 @@ final class AppController {
     private(set) var appChannels = AppChannelBook.load(from: AppController.appChannelsURL)
     private(set) var appChannelsReading = false
     @ObservationIgnored private let sharePresenter = SharePresenter()
+    let updater = Updater()
     var recordingShortcut = false {
         didSet { recordingShortcut ? hotkey.stop() : applyShortcut() }
     }
@@ -73,6 +74,7 @@ final class AppController {
         applyShortcut()
         refreshCatalogIfNeeded()
         readAppChannels()
+        updater.startAutomaticChecks()
         refreshTimer = Timer.scheduledTimer(withTimeInterval: 300, repeats: true) { [weak self] _ in
             MainActor.assumeIsolated { self?.refreshCatalogIfNeeded() }
         }
@@ -510,7 +512,50 @@ final class AppController {
         }.value
     }
 
+    private func runUpdateCommand(_ command: HeadlessRequest.UpdateCommand) async -> Int32 {
+        let current = updater.currentVersion
+        func fail(_ error: Error) -> Int32 {
+            FileHandle.standardError.write(Data("appshot: update refused: \(Updater.describe(error)) [\(error)]\n".utf8))
+            return 1
+        }
+        switch command {
+        case .verify(let zip, let sha256):
+            let work = FileManager.default.temporaryDirectory.appending(path: "Appshot-Verify-\(UUID().uuidString)")
+            defer { try? FileManager.default.removeItem(at: work) }
+            do {
+                try FileManager.default.createDirectory(at: work, withIntermediateDirectories: true)
+                let app = try Updater.verifyArchive(
+                    URL(filePath: (zip as NSString).expandingTildeInPath), sha256: sha256,
+                    currentVersion: current, replacing: Bundle.main.bundleURL, work: work
+                )
+                print("verified: \(UpdateVerifier.bundleVersion(app) ?? "?") would replace \(current)")
+                return 0
+            } catch {
+                return fail(error)
+            }
+        case .check, .install:
+            do {
+                switch try await Updater.fetch(currentVersion: current) {
+                case .upToDate(let latest):
+                    print("up to date: \(current) (latest release \(latest))")
+                    return 0
+                case .available(let update):
+                    print("update available: \(current) -> \(update.version) \(update.downloadURL.absoluteString) sha256:\(update.sha256)")
+                    guard case .install(let relaunch) = command else { return 0 }
+                    try await Updater.installAndRelaunch(update, currentVersion: current, relaunch: relaunch)
+                    print("verified; replacing \(Bundle.main.bundleURL.path(percentEncoded: false)) after exit")
+                    return 0
+                }
+            } catch {
+                return fail(error)
+            }
+        }
+    }
+
     private func runHeadless(_ request: HeadlessRequest) async {
+        if let command = request.update {
+            exit(await runUpdateCommand(command))
+        }
         if let render = request.render {
             let code = await PanelRenderer.render(render, controller: self)
             exit(code)
@@ -551,6 +596,12 @@ final class AppController {
 }
 
 struct HeadlessRequest: Sendable {
+    enum UpdateCommand: Sendable {
+        case check
+        case install(relaunch: Bool)
+        case verify(zip: String, sha256: String)
+    }
+
     struct Render: Sendable {
         var output: String
         var dark: Bool
@@ -564,11 +615,15 @@ struct HeadlessRequest: Sendable {
     var configPath: String?
     var appBundleID: String?
     var render: Render?
+    var update: UpdateCommand?
 
     static func parse(_ arguments: [String]) -> HeadlessRequest? {
         let renderRequested = arguments.contains("--render")
-        guard arguments.contains("--appshot-now") || renderRequested else { return nil }
+        let updateRequested = ["--check-update", "--install-update", "--verify-update"].contains(where: arguments.contains)
+        guard arguments.contains("--appshot-now") || renderRequested || updateRequested else { return nil }
         var request = HeadlessRequest()
+        var verifyZip: String?
+        var verifySHA = ""
         var render = Render(output: "", dark: false, scene: "panel")
         var iterator = arguments.makeIterator()
         while let argument = iterator.next() {
@@ -582,10 +637,15 @@ struct HeadlessRequest: Sendable {
             case "--dark": render.dark = true
             case "--scene": render.scene = iterator.next() ?? "panel"
             case "--demo-image": render.demoImage = iterator.next()
+            case "--check-update": request.update = request.update ?? .check
+            case "--install-update": request.update = .install(relaunch: !arguments.contains("--no-relaunch"))
+            case "--verify-update": verifyZip = iterator.next()
+            case "--sha256": verifySHA = iterator.next() ?? ""
             default: break
             }
         }
         if renderRequested { request.render = render }
+        if let verifyZip { request.update = .verify(zip: verifyZip, sha256: verifySHA) }
         return request
     }
 }

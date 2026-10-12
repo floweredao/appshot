@@ -133,6 +133,8 @@ struct SettingsView: View {
                     .foregroundStyle(.secondary)
             }
 
+            UpdatesSection(updater: controller.updater)
+
             Section {
                 Toggle(isOn: Binding(
                     get: { controller.launchAtLogin },
@@ -275,6 +277,72 @@ enum KeyName {
 
 private extension String {
     var nonEmpty: String? { isEmpty ? nil : self }
+}
+
+struct UpdatesSection: View {
+    @Bindable var updater: Updater
+
+    var body: some View {
+        Section {
+            LabeledContent {
+                Text(verbatim: updater.currentVersion).monospacedDigit()
+            } label: {
+                Text("Version")
+            }
+            Toggle(isOn: $updater.automaticChecks) {
+                Text("Check for updates automatically")
+            }
+            HStack(spacing: 10) {
+                status
+                Spacer()
+                if case .available(let update) = updater.phase {
+                    Button("Release Notes") { NSWorkspace.shared.open(update.releaseURL) }
+                    Button("Install and Restart") { updater.install(update) }
+                        .buttonStyle(.borderedProminent)
+                } else {
+                    Button("Check Now") { Task { await updater.check() } }
+                        .disabled(updater.isBusy)
+                }
+            }
+        } header: {
+            Text("Updates")
+        } footer: {
+            Text("Updates come from GitHub releases of floweredao/appshot. Appshot installs one only when its checksum, bundle ID, and code signature match this copy.")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+        }
+    }
+
+    @ViewBuilder private var status: some View {
+        switch updater.phase {
+        case .idle:
+            if let lastCheck = updater.lastCheck {
+                Text("Last checked \(lastCheck, format: .relative(presentation: .named))").foregroundStyle(.secondary)
+            } else {
+                Text("Not checked yet").foregroundStyle(.secondary)
+            }
+        case .checking:
+            HStack(spacing: 6) {
+                ProgressView().controlSize(.small)
+                Text("Checking…").foregroundStyle(.secondary)
+            }
+        case .upToDate:
+            Label("Appshot is up to date.", systemImage: "checkmark.circle.fill")
+                .foregroundStyle(.secondary)
+        case .available(let update):
+            Label("Version \(update.version.description) is available.", systemImage: "arrow.down.circle.fill")
+                .foregroundStyle(Color.accentColor)
+        case .installing:
+            HStack(spacing: 6) {
+                ProgressView().controlSize(.small)
+                Text("Downloading and checking the update…").foregroundStyle(.secondary)
+            }
+        case .failed(let reason):
+            Label(reason, systemImage: "exclamationmark.triangle.fill")
+                .foregroundStyle(.orange)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+    }
 }
 
 private struct PermissionRow: View {
@@ -474,7 +542,7 @@ private struct FavoritesSection: View {
                 HStack(spacing: 10) {
                     if let item = index.destination(id: id) {
                         DestinationIcon(kind: item.kind, id: item.id)
-                        Text(verbatim: item.title).lineLimit(1)
+                        Text(verbatim: item.listTitle).lineLimit(1)
                         if let context = item.context ?? DestinationSubtitle.text(item) {
                             Text(verbatim: context).font(.caption).foregroundStyle(.secondary).lineLimit(1)
                         }
