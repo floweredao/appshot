@@ -28,7 +28,6 @@ final class PanelModel {
     var warnings: [String] = []
     var phase: Phase = .capturing
     var note = ""
-    var assistantName = String(localized: "your assistant")
 
     var index = DestinationIndex(pinned: [], catalog: nil)
     var recentIDs: [String] = []
@@ -397,7 +396,7 @@ struct PanelView: View {
                 .accessibilityHidden(true)
             ZStack(alignment: .leading) {
                 if model.note.isEmpty {
-                    Text("Ask \(model.assistantName) about this window (optional)")
+                    Text("Message to send with the image (optional)")
                         .foregroundStyle(.secondary)
                         .lineLimit(1)
                         .accessibilityHidden(true)
@@ -670,7 +669,6 @@ private struct DestinationRow: View {
     var body: some View {
         HStack(spacing: 9) {
             DestinationIcon(kind: item.kind, id: item.id)
-                .padding(.leading, item.kind == .thread ? 14 : 0)
             Text(item.listTitle).font(.system(size: 13.5)).lineLimit(1)
             if let context = item.context ?? DestinationSubtitle.text(item), item.kind != .channel {
                 Text(context).font(.system(size: 12)).foregroundStyle(highlighted ? .white.opacity(0.85) : .secondary).lineLimit(1)
@@ -704,26 +702,63 @@ private struct DestinationRow: View {
     }
 }
 
+@MainActor
+enum AppIcons {
+    static let discordBundleIDs = ["com.hnc.Discord", "com.hnc.DiscordPTB", "com.hnc.DiscordCanary"]
+    private static var cache: [String: NSImage] = [:]
+    private static var missing: Set<String> = []
+
+    static func icon(bundleID: String) -> NSImage? {
+        if let cached = cache[bundleID] { return cached }
+        if missing.contains(bundleID) { return nil }
+        guard let url = NSWorkspace.shared.urlForApplication(withBundleIdentifier: bundleID) else {
+            missing.insert(bundleID)
+            return nil
+        }
+        let icon = NSWorkspace.shared.icon(forFile: url.path)
+        cache[bundleID] = icon
+        return icon
+    }
+
+    static var installedDiscord: String? {
+        discordBundleIDs.first { NSWorkspace.shared.urlForApplication(withBundleIdentifier: $0) != nil }
+    }
+
+    static var discord: NSImage? { installedDiscord.flatMap { icon(bundleID: $0) } }
+}
+
 struct DestinationIcon: View {
+    static let size: CGFloat = 20
+
     let kind: Destination.Kind
     var id: String = ""
 
     var body: some View {
         Group {
-            if kind == .app, let icon = appIcon {
-                Image(nsImage: icon).resizable().frame(width: 16, height: 16)
+            if let icon = appIcon {
+                Image(nsImage: icon).resizable().interpolation(.high).frame(width: Self.size, height: Self.size)
             } else {
-                Image(systemName: symbol).font(.system(size: 12, weight: .semibold))
+                Image(systemName: symbol)
+                    .font(.system(size: 9.5, weight: .semibold))
+                    .frame(width: 16, height: 16)
+                    .background(Color.primary.opacity(0.1), in: RoundedRectangle(cornerRadius: 4, style: .continuous))
             }
         }
-        .frame(width: 18)
+        .frame(width: Self.size, height: Self.size)
         .accessibilityHidden(true)
     }
 
     private var appIcon: NSImage? {
-        let bundleID = id.replacingOccurrences(of: "target:app:", with: "")
-        guard let url = NSWorkspace.shared.urlForApplication(withBundleIdentifier: bundleID) else { return nil }
-        return NSWorkspace.shared.icon(forFile: url.path)
+        switch kind {
+        case .app:
+            AppIcons.icon(bundleID: String(id.dropFirst(TargetID.app("").count)))
+        case .appChannel:
+            id.range(of: "/channels/").flatMap { AppIcons.icon(bundleID: String(id[..<$0.lowerBound].dropFirst(TargetID.app("").count))) }
+        case .direct, .channel, .thread:
+            AppIcons.discord
+        case .clipboard, .folder, .share, .command:
+            nil
+        }
     }
 
     private var symbol: String {

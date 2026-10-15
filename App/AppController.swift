@@ -28,6 +28,8 @@ final class AppController {
     private(set) var targetsRevision = 0
     private(set) var appChannels = AppChannelBook.load(from: AppController.appChannelsURL)
     private(set) var appChannelsReading = false
+    private(set) var appChannelsProgress: String?
+    private(set) var appChannelsResult: String?
     @ObservationIgnored private let sharePresenter = SharePresenter()
     let updater = Updater()
     var recordingShortcut = false {
@@ -49,6 +51,7 @@ final class AppController {
     private static let targetsKey = "targets"
     private static let favoritesKey = "favorites"
     private static let numberShortcutsKey = "numberShortcuts"
+    private static let discordVisibilityKey = "discordVisibility"
 
     init() {
         if let data = UserDefaults.standard.data(forKey: Self.shortcutKey),
@@ -244,14 +247,84 @@ final class AppController {
 
     func destinationIndex(_ config: AppshotConfig?) -> DestinationIndex {
         DestinationIndex(
-            pinned: config?.channels ?? [], catalog: config == nil ? nil : catalog,
+            pinned: config?.channels ?? [], catalog: config == nil ? nil : discordVisibility.filter(catalog),
             targets: targetSettings.destinations(
                 clipboardName: String(localized: "Copy to Clipboard"),
                 folderName: String(localized: "Save to Folder…"),
                 shareName: String(localized: "Share…"),
-                channels: appChannels
+                channels: discordVisibility.filter(appChannels)
             )
         )
+    }
+
+    var discordVisibility: DiscordVisibility {
+        get { demoVisibility ?? DiscordVisibility.decode(UserDefaults.standard.data(forKey: Self.discordVisibilityKey)) }
+        set {
+            if demoVisibility != nil {
+                demoVisibility = newValue
+                targetsRevision += 1
+                return
+            }
+            if let data = try? JSONEncoder().encode(newValue) { UserDefaults.standard.set(data, forKey: Self.discordVisibilityKey) }
+            targetsRevision += 1
+            if let model = activeModel { model.index = destinationIndex(config) }
+        }
+    }
+
+    var discordServers: [DiscordServerSummary] {
+        DiscordServerSummary.merge(catalog: config == nil ? nil : catalog, book: appChannels)
+    }
+
+    @ObservationIgnored private var demoTargets: [AppTarget]?
+    @ObservationIgnored private var demoVisibility: DiscordVisibility?
+
+    var discordTargets: [AppTarget] {
+        (demoTargets ?? targetSettings.apps).filter { DiscordLink.isDiscord(bundleID: $0.bundleID) }
+    }
+
+    func addDiscordTarget() {
+        guard let bundleID = AppIcons.installedDiscord else { return }
+        updateTargets { settings in
+            if !settings.apps.contains(where: { $0.bundleID == bundleID }) {
+                settings.apps.append(AppTarget(bundleID: bundleID, name: "Discord"))
+            }
+        }
+        readAppChannels()
+    }
+
+    func readAllAppChannels() {
+        let apps = discordTargets.map(\.bundleID).filter(DiscordReader.isRunning(bundleID:))
+        guard !apps.isEmpty, !appChannelsReading else { return }
+        appChannelsReading = true
+        appChannelsResult = nil
+        let directMessages = String(localized: "Direct Messages")
+        Task {
+            let found = await Task.detached(priority: .userInitiated) {
+                apps.flatMap { bundleID in
+                    DiscordReader.allChannels(bundleID: bundleID, directMessages: directMessages) { done, total in
+                        Task { @MainActor in self.appChannelsProgress = String(localized: "Reading server \(done) of \(total)…") }
+                    }
+                }
+            }.value
+            appChannelsReading = false
+            appChannelsProgress = nil
+            let servers = Set(found.map(\.server)).count
+            appChannelsResult = found.isEmpty
+                ? String(localized: "No channels found. Open the Discord window (not just the menu bar icon) and try again.")
+                : String(localized: "Found \(servers) servers and \(found.count) channels.")
+            guard appChannels.merge(found) else { return }
+            try? appChannels.save(to: Self.appChannelsURL)
+            targetsRevision += 1
+            if let model = activeModel { model.index = destinationIndex(config) }
+        }
+    }
+
+    func useDemoDiscord(_ book: AppChannelBook, apps: [AppTarget], visibility: DiscordVisibility) {
+        appChannels = book
+        catalog = nil
+        demoTargets = apps
+        demoVisibility = visibility
+        accessibilityAllowed = true
     }
 
     static var appChannelsURL: URL {
@@ -383,7 +456,6 @@ final class AppController {
         var recents = recentIDs
         var preferred: Destination?
         if let config {
-            model.assistantName = config.assistantName ?? model.assistantName
             let resolved = ChannelResolver(config: config).resolve()
             recents = RecentDestinations.push(resolved.id, into: recents)
             preferred = index.destination(id: resolved.id) ?? Destination(id: resolved.id, name: resolved.label, kind: .thread)

@@ -50,7 +50,10 @@
 
 **설정… › 보낼 대상**에서 대상을 켜고 끄고, 앱을 추가하고, 명령을 써요. 명령 예: `open -a Preview {screenshot}`
 
-**디스코드 채널.** 디스코드 앱을 붙여넣기 대상으로 추가하면, 앱샷이 디스코드 앱 화면에 보이는 채널을 손쉬운 사용으로 읽어 보낼 곳 목록에 서버별로 보여 줘요. 채널을 고르면 디스코드에서 그 채널을 열고 거기에 붙여 넣어요. 디스코드에서 서버를 한 번 열어 두면 그 서버 채널이 추가되고, **설정… › 채널 읽기**로 다시 읽을 수 있어요. 목록은 `~/Library/Application Support/Appshot/app-channels.json`에 저장돼요.
+**디스코드 서버와 채널.** 디스코드 앱을 붙여넣기 대상으로 추가하면(설치돼 있으면 **설정… › 디스코드 서버 › 디스코드 추가**), 앱샷이 디스코드 앱에 보이는 채널을 손쉬운 사용으로 읽어 보낼 곳 목록에 서버별로, 디스코드 아이콘과 함께 보여 줘요. 채널을 고르면 디스코드에서 그 채널을 열고 거기에 붙여 넣어요. **모든 서버 읽기**를 누르면 서버 사이드바의 서버를 하나씩 잠깐 열어 채널을 읽고 원래 보던 채널로 돌아와요. 그래서 열려 있던 서버 하나가 아니라 들어가 있는 서버가 모두 나와요. 패널에 안 보이게 할 서버나 채널은 꺼 두면 돼요. 나중에 찾은 서버는 알아서 켜진 채로 나와요. 설정 파일에 비서 봇 목록이 있으면 그 서버도 같은 목록에서 골라요. 디스코드가 없거나, 안 켜져 있거나, 손쉬운 사용 권한이 꺼져 있으면 무엇을 하면 되는지 그 칸에 알려 줘요. 채널 목록은 `~/Library/Application Support/Appshot/app-channels.json`에 저장돼요.
+
+<p align="center"><img src="docs/discord-ko-light.png" width="560" alt="설정의 디스코드 서버, 라이트 모드"></p>
+<p align="center"><img src="docs/discord-ko-dark.png" width="560" alt="설정의 디스코드 서버, 다크 모드"></p>
 
 ### 즐겨찾기와 숫자 단축키
 
@@ -156,7 +159,6 @@ Codex는 이렇게 해요. OpenAI 문서에 따르면 Appshots는 손쉬운 사�
     { "key": "general", "label": "#general", "id": "GENERAL_CHANNEL_ID", "kind": "channel" }
   ],
   "fallbackChannel": "general",
-  "assistantName": "비서",
   "catalog": { "cli": "/path/to/agent-discordbot", "bot": "BOT_ALIAS", "refreshMinutes": 15 }
 }
 ```
