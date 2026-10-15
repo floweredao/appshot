@@ -45,6 +45,8 @@ struct SettingsView: View {
 
             TargetsSection(controller: controller)
 
+            DiscordServersSection(controller: controller)
+
             Section {
                 PermissionRow(
                     title: Text("Screen Recording"),
@@ -380,9 +382,9 @@ private struct TargetsSection: View {
         let _ = controller.targetsRevision
         let settings = controller.targetSettings
         Section {
-            Toggle(isOn: binding(\.clipboard)) { Label("Copy to Clipboard", systemImage: "doc.on.clipboard") }
-            Toggle(isOn: binding(\.folder)) { Label("Save to Folder…", systemImage: "folder") }
-            Toggle(isOn: binding(\.share)) { Label("Share…", systemImage: "square.and.arrow.up") }
+            Toggle(isOn: binding(\.clipboard)) { iconLabel(.clipboard, Text("Copy to Clipboard")) }
+            Toggle(isOn: binding(\.folder)) { iconLabel(.folder, Text("Save to Folder…")) }
+            Toggle(isOn: binding(\.share)) { iconLabel(.share, Text("Share…")) }
         } header: {
             Text("Send targets")
         } footer: {
@@ -421,9 +423,6 @@ private struct TargetsSection: View {
                     }
                     .buttonStyle(.borderless)
                     .accessibilityLabel(Text("Remove"))
-                }
-                if DiscordLink.isDiscord(bundleID: app.bundleID) {
-                    DiscordChannelsRow(controller: controller, app: app)
                 }
             }
             HStack {
@@ -488,6 +487,13 @@ private struct TargetsSection: View {
         }
     }
 
+    private func iconLabel(_ kind: Destination.Kind, _ title: Text) -> some View {
+        HStack(spacing: 10) {
+            DestinationIcon(kind: kind)
+            title
+        }
+    }
+
     private func binding(_ keyPath: WritableKeyPath<TargetSettings, Bool>) -> Binding<Bool> {
         Binding(
             get: { controller.targetSettings[keyPath: keyPath] },
@@ -496,27 +502,110 @@ private struct TargetsSection: View {
     }
 }
 
-private struct DiscordChannelsRow: View {
-    let controller: AppController
-    let app: AppTarget
+struct DiscordServersSection: View {
+    @Bindable var controller: AppController
+    @State private var expanded: Set<String>
+
+    init(controller: AppController, expanded: Set<String> = []) {
+        self.controller = controller
+        _expanded = State(initialValue: expanded)
+    }
 
     var body: some View {
-        let channels = controller.appChannels.channels(for: app.bundleID).count
-        let servers = controller.appChannels.servers(for: app.bundleID)
-        HStack(alignment: .center, spacing: 10) {
-            VStack(alignment: .leading, spacing: 2) {
-                Text("\(servers) servers · \(channels) channels").monospacedDigit()
-                Text("Appshot reads channels from the Discord app. Open a server in Discord once to add its channels.")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                    .fixedSize(horizontal: false, vertical: true)
+        let _ = controller.targetsRevision
+        let servers = controller.discordServers
+        let visibility = controller.discordVisibility
+        let discordApp = controller.discordTargets.first
+        Section {
+            guidance(discordApp: discordApp, hasServers: !servers.isEmpty)
+            ForEach(servers) { server in
+                DisclosureGroup(isExpanded: Binding(
+                    get: { expanded.contains(server.id) },
+                    set: { value in if value { expanded.insert(server.id) } else { expanded.remove(server.id) } }
+                )) {
+                    ForEach(server.channels) { channel in
+                        Toggle(isOn: Binding(
+                            get: { visibility.shows(server: server.id, channel: channel.id) },
+                            set: { value in controller.discordVisibility.set(channel: channel.id, visible: value) }
+                        )) {
+                            Text(verbatim: server.isDirectMessages ? channel.name : "#\(channel.name)").lineLimit(1)
+                        }
+                        .disabled(!visibility.shows(server: server.id))
+                        .padding(.leading, 40)
+                    }
+                } label: {
+                    Toggle(isOn: Binding(
+                        get: { visibility.shows(server: server.id) },
+                        set: { value in controller.discordVisibility.set(server: server.id, visible: value) }
+                    )) {
+                        HStack(spacing: 10) {
+                            DestinationIcon(kind: .channel)
+                            VStack(alignment: .leading, spacing: 1) {
+                                Text(verbatim: server.name.isEmpty ? server.id : server.name).lineLimit(1)
+                                Text(sourceLine(server)).font(.caption).foregroundStyle(.secondary).monospacedDigit()
+                            }
+                        }
+                    }
+                }
             }
-            .padding(.leading, 28)
-            Spacer()
-            if controller.appChannelsReading { ProgressView().controlSize(.small) }
-            Button("Read Channels", action: controller.readAppChannels)
-                .disabled(controller.appChannelsReading)
+            if discordApp != nil {
+                HStack(spacing: 8) {
+                    if let result = controller.appChannelsResult, !controller.appChannelsReading {
+                        Text(verbatim: result).font(.caption).foregroundStyle(.secondary)
+                    }
+                    Spacer()
+                    if controller.appChannelsReading {
+                        ProgressView().controlSize(.small)
+                        if let progress = controller.appChannelsProgress {
+                            Text(verbatim: progress).font(.caption).foregroundStyle(.secondary).monospacedDigit()
+                        }
+                    }
+                    Button("Read All Servers", action: controller.readAllAppChannels)
+                        .disabled(controller.appChannelsReading || !controller.accessibilityAllowed
+                            || !DiscordReader.isRunning(bundleID: discordApp?.bundleID ?? ""))
+                }
+            }
+        } header: {
+            Text("Discord servers")
+        } footer: {
+            Text("Turn off servers or channels you don’t want in the panel. Read All Servers opens each server in the Discord app for a moment to list its channels, then goes back to the channel you had open.")
+                .font(.caption).foregroundStyle(.secondary)
         }
+    }
+
+    @ViewBuilder private func guidance(discordApp: AppTarget?, hasServers: Bool) -> some View {
+        if discordApp == nil {
+            if AppIcons.installedDiscord != nil {
+                HStack {
+                    notice(Text("Add Discord to paste into its servers and channels."))
+                    Spacer()
+                    Button("Add Discord", action: controller.addDiscordTarget)
+                }
+            } else if controller.config?.catalog == nil {
+                notice(Text("Install the Discord app to send to its servers and channels, or add an assistant bot catalog to the config file."))
+            }
+        } else if !controller.accessibilityAllowed {
+            notice(Text("Allow Accessibility under Permissions so Appshot can read Discord’s servers and channels."))
+        } else if !DiscordReader.isRunning(bundleID: discordApp?.bundleID ?? "") {
+            notice(Text("Open Discord and sign in, then click Read All Servers."))
+        } else if !hasServers {
+            notice(Text("No servers yet. Click Read All Servers."))
+        }
+    }
+
+    private func notice(_ text: Text) -> some View {
+        Label { text.fixedSize(horizontal: false, vertical: true) } icon: {
+            Image(systemName: "info.circle").foregroundStyle(Color.accentColor)
+        }
+        .font(.callout)
+    }
+
+    private func sourceLine(_ server: DiscordServerSummary) -> String {
+        let count = String(localized: "\(server.channels.count) channels")
+        var sources: [String] = []
+        if server.sources.contains(.app) { sources.append(String(localized: "Discord app")) }
+        if server.sources.contains(.bot) { sources.append(String(localized: "Assistant bot")) }
+        return ([count] + sources).joined(separator: " · ")
     }
 }
 

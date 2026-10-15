@@ -48,7 +48,10 @@ Pick where an appshot goes in the panel with ⌘K. Appshot remembers the last ta
 | **Share…** | Opens the macOS Share menu (Mail, Messages, AirDrop, …) with the screenshot and text. |
 | **Custom command** | Runs a shell command, opens a URL scheme, or POSTs JSON to a webhook. Placeholders: `{folder}` `{note}` `{app}` `{title}` `{url}` `{screenshot}` `{preview}` `{text}` `{channel}`. Shell values are quoted, and `APPSHOT_*` environment variables are set. |
 
-**Discord channels.** When you add the Discord app as a paste target, Appshot reads the channels the Discord app shows (through Accessibility) and lists them in the picker, grouped by server. Choosing one opens that channel in Discord and pastes there. Open a server in Discord once so its channels appear; **Settings… › Read Channels** reads them again. The list is kept in `~/Library/Application Support/Appshot/app-channels.json`.
+**Discord servers and channels.** When you add the Discord app as a paste target (**Settings… › Discord servers › Add Discord** if it's installed), Appshot reads the channels the Discord app shows through Accessibility and lists them in the picker, grouped by server, with the Discord icon. Choosing one opens that channel in Discord and pastes there. **Read All Servers** opens each server in your server sidebar for a moment, reads its channels, and returns to the channel you had open, so every server you belong to shows up, not just the one that was open. Turn whole servers or single channels off to keep them out of the panel; servers found later show up on their own. The same list covers your assistant bot's servers when the config file has a catalog. If Discord isn't installed, isn't running, or Accessibility is off, the section says what to do. Channels are kept in `~/Library/Application Support/Appshot/app-channels.json`.
+
+<p align="center"><img src="docs/discord-en-light.png" width="560" alt="Discord servers in Settings, light mode"></p>
+<p align="center"><img src="docs/discord-en-dark.png" width="560" alt="Discord servers in Settings, dark mode"></p>
 
 Turn targets on or off, add apps, and write commands in **Settings… › Send targets**. Example command: `open -a Preview {screenshot}`.
 
@@ -151,7 +154,6 @@ Machine-specific values never live in the repository. Appshot reads `~/Library/A
     { "key": "general", "label": "#general", "id": "GENERAL_CHANNEL_ID", "kind": "channel" }
   ],
   "fallbackChannel": "general",
-  "assistantName": "Assistant",
   "catalog": { "cli": "/path/to/agent-discordbot", "bot": "BOT_ALIAS", "refreshMinutes": 15 }
 }
 ```

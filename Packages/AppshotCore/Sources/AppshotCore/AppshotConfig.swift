@@ -44,7 +44,6 @@ public struct AppshotConfig: Codable, Sendable, Equatable {
     public var eventsLog: String?
     public var ownerInbox: String?
     public var handledIds: String?
-    public var assistantName: String?
     public var catalog: CatalogSource?
 
     public init(
@@ -55,7 +54,6 @@ public struct AppshotConfig: Codable, Sendable, Equatable {
         eventsLog: String? = nil,
         ownerInbox: String? = nil,
         handledIds: String? = nil,
-        assistantName: String? = nil,
         catalog: CatalogSource? = nil
     ) {
         self.stateDir = stateDir
@@ -65,7 +63,6 @@ public struct AppshotConfig: Codable, Sendable, Equatable {
         self.eventsLog = eventsLog
         self.ownerInbox = ownerInbox
         self.handledIds = handledIds
-        self.assistantName = assistantName
         self.catalog = catalog
     }
 
@@ -123,7 +120,6 @@ public struct AppshotConfig: Codable, Sendable, Equatable {
             ChannelOption(key: "general", label: "#general", id: "GENERAL_CHANNEL_ID", kind: "channel"),
         ],
         fallbackChannel: "general",
-        assistantName: "Assistant",
         catalog: CatalogSource(cli: "/path/to/agent-discordbot", bot: "BOT_ALIAS", refreshMinutes: 15)
     )
 }
