@@ -26,11 +26,116 @@ enum DiscordReader {
         guard AXIsProcessTrusted(), let app = runningApp(bundleID) else { return nil }
         let root = AXUIElementCreateApplication(app.processIdentifier)
         AXUIElementSetMessagingTimeout(root, 0.5)
+        return currentLink(root)?.channel
+    }
+
+    static func isRunning(bundleID: String) -> Bool {
+        runningApp(bundleID) != nil
+    }
+
+    /// Opens every server in Discord's server sidebar through Accessibility, reads its channel list,
+    /// and goes back to the channel that was open. Discord stays where it is on screen and is not activated.
+    static func allChannels(
+        bundleID: String, directMessages: String, perServer: TimeInterval = 4,
+        progress: @Sendable (Int, Int) -> Void = { _, _ in }
+    ) -> [AppChannel] {
+        guard AXIsProcessTrusted(), let app = runningApp(bundleID) else { return [] }
+        let root = AXUIElementCreateApplication(app.processIdentifier)
+        AXUIElementSetMessagingTimeout(root, 0.5)
+        var found = channels(bundleID: bundleID, directMessages: directMessages)
+        let original = currentLink(root)
+        var position = 0
+        var visitedServers = Set<String>()
+        while position < 200 {
+            let rows = serverRows(root)
+            guard rows.indices.contains(position) else { break }
+            progress(position + 1, rows.count)
+            let before = currentLink(root)?.server
+            if AXUIElementPerformAction(rows[position], kAXPressAction as CFString) == .success,
+               let harvest = waitForServer(root, other: before, bundleID: bundleID, directMessages: directMessages, budget: perServer),
+               visitedServers.insert(harvest.server).inserted {
+                found += harvest.channels
+            }
+            position += 1
+        }
+        restore(root, to: original, bundleID: bundleID)
+        var seen = Set<String>()
+        return found.filter { seen.insert($0.channel).inserted }
+    }
+
+    private static func waitForServer(
+        _ root: AXUIElement, other previous: String?, bundleID: String, directMessages: String, budget: TimeInterval
+    ) -> (server: String, channels: [AppChannel])? {
+        let deadline = Date().addingTimeInterval(budget)
+        var last: [AppChannel] = []
+        while Date() < deadline {
+            Thread.sleep(forTimeInterval: 0.25)
+            guard let server = currentLink(root)?.server, server != previous else { continue }
+            let harvest = scan(root, bundleID: bundleID, directMessages: directMessages, deadline: deadline)
+                .filter { $0.server == server }
+            if !harvest.isEmpty, harvest == last { return (server, harvest) }
+            last = harvest
+        }
+        guard let server = last.first?.server else { return nil }
+        return (server, last)
+    }
+
+    private static func restore(_ root: AXUIElement, to original: (server: String, channel: String)?, bundleID: String) {
+        guard let original, currentLink(root).map({ $0 != original }) ?? true else { return }
+        if let link = channelLink(root, channel: original.channel),
+           AXUIElementPerformAction(link, kAXPressAction as CFString) == .success {
+            return
+        }
+        guard let url = DiscordLink.deepLink(server: original.server, channel: original.channel),
+              let appURL = NSWorkspace.shared.urlForApplication(withBundleIdentifier: bundleID) else { return }
+        let configuration = NSWorkspace.OpenConfiguration()
+        configuration.activates = false
+        NSWorkspace.shared.open([url], withApplicationAt: appURL, configuration: configuration)
+    }
+
+    /// Server buttons are the outline rows inside the server sidebar's group of servers;
+    /// the direct-messages, add-server, and discover rows sit outside that group.
+    private static func serverRows(_ root: AXUIElement) -> [AXUIElement] {
+        var rows: [AXUIElement] = []
+        var stack: [(AXUIElement, Bool, Bool)] = windows(root).map { ($0, false, false) }
+        var visited = 0
+        while let (element, inOutline, inGroup) = stack.popLast(), visited < 20_000 {
+            visited += 1
+            let values = read(element)
+            let role = values[kAXRoleAttribute] as? String
+            let subrole = values[kAXSubroleAttribute] as? String
+            if inGroup, subrole == "AXOutlineRow", !(values[kAXTitleAttribute] as? String ?? "").isEmpty {
+                rows.append(element)
+            }
+            let outline = inOutline || role == "AXOutline"
+            let group = inGroup || (outline && subrole == "AXApplicationGroup")
+            let children = values[kAXChildrenAttribute] as? [AXUIElement] ?? []
+            for child in children.reversed() { stack.append((child, outline, group)) }
+        }
+        return rows
+    }
+
+    private static func channelLink(_ root: AXUIElement, channel: String) -> AXUIElement? {
+        var stack = windows(root)
+        var visited = 0
+        while let element = stack.popLast(), visited < 20_000 {
+            visited += 1
+            let values = read(element)
+            if values[kAXRoleAttribute] as? String == "AXLink", let url = values["AXURL"] as? URL,
+               DiscordLink.parse(url.absoluteString)?.channel == channel {
+                return element
+            }
+            stack.append(contentsOf: (values[kAXChildrenAttribute] as? [AXUIElement] ?? []).reversed())
+        }
+        return nil
+    }
+
+    private static func currentLink(_ root: AXUIElement) -> (server: String, channel: String)? {
         var stack = windows(root).map { ($0, 0) }
         while let (element, depth) = stack.popLast() {
             let values = read(element)
             if values[kAXRoleAttribute] as? String == "AXWebArea" {
-                return (values["AXURL"] as? URL).flatMap { DiscordLink.parse($0.absoluteString)?.channel }
+                return (values["AXURL"] as? URL).flatMap { DiscordLink.parse($0.absoluteString) }
             }
             guard depth < 8 else { continue }
             stack.append(contentsOf: (values[kAXChildrenAttribute] as? [AXUIElement] ?? []).map { ($0, depth + 1) })

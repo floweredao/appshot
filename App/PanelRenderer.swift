@@ -12,6 +12,23 @@ enum PanelRenderer {
         case "settings":
             let host = NSHostingView(rootView: SettingsView(controller: controller).frame(height: 760))
             view = host
+        case "discord":
+            let studio = String(localized: "demo.server")
+            let club = String(localized: "demo.server2")
+            func channel(_ server: String, _ serverName: String, _ id: String, _ name: String) -> AppChannel {
+                AppChannel(app: "com.hnc.Discord", server: server, serverName: serverName, channel: id, name: name)
+            }
+            controller.useDemoDiscord(
+                AppChannelBook(channels: [
+                    channel("1", studio, "10", "general"), channel("1", studio, "11", "design"),
+                    channel("1", studio, "12", "release"), channel("1", studio, "13", "random"),
+                    channel("2", club, "20", "reading-list"), channel("2", club, "21", "meetups"),
+                ]),
+                apps: [AppTarget(bundleID: "com.hnc.Discord", name: "Discord")],
+                visibility: DiscordVisibility(hiddenChannels: ["13"])
+            )
+            view = NSHostingView(rootView: Form { DiscordServersSection(controller: controller, expanded: ["1"]) }
+                .formStyle(.grouped).frame(width: 600, height: 350))
         case "updates":
             view = NSHostingView(rootView: Form { UpdatesSection(updater: controller.updater) }.formStyle(.grouped).frame(width: 600, height: 240))
         default:
@@ -38,7 +55,7 @@ enum PanelRenderer {
         view.display()
         guard let panelImage = snapshot(view, scale: 2) else { return 6 }
         window.orderOut(nil)
-        let composite = request.scene == "settings" || request.scene == "updates" ? panelImage : backdrop(panelImage, dark: request.dark, scale: 2)
+        let composite = ["settings", "updates", "discord"].contains(request.scene) ? panelImage : backdrop(panelImage, dark: request.dark, scale: 2)
         guard let data = ImageEncoding.png(composite) else { return 7 }
         do {
             try data.write(to: URL(filePath: (request.output as NSString).expandingTildeInPath))
@@ -55,7 +72,6 @@ enum PanelRenderer {
         let model = PanelModel(appName: "Safari", appIcon: safari.map { NSWorkspace.shared.icon(forFile: $0.path) })
         model.renderMode = true
         model.windowTitle = String(localized: "demo.windowTitle")
-        model.assistantName = String(localized: "demo.assistant")
         if let path = request.demoImage, let image = NSImage(contentsOfFile: (path as NSString).expandingTildeInPath) {
             model.preview = image
             model.previewAspect = image.size.width / max(image.size.height, 1)
