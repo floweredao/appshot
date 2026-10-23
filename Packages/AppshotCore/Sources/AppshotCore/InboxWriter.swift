@@ -191,9 +191,15 @@ public struct InboxWriter: Sendable {
         let fm = FileManager.default
         guard let urls = try? fm.contentsOfDirectory(at: inboxDir, includingPropertiesForKeys: [.creationDateKey]) else { return }
         // Oldest first by creation date: folder names are local time, which runs backwards when the clock or time zone moves back.
-        let folders = urls.filter { !$0.lastPathComponent.hasPrefix(".") }
-            .map { (url: $0, created: (try? $0.resourceValues(forKeys: [.creationDateKey]).creationDate) ?? .distantPast) }
-            .sorted { $0.created != $1.created ? $0.created < $1.created : $0.url.lastPathComponent < $1.url.lastPathComponent }
+        var folders: [(url: URL, created: Date)] = []
+        for url in urls where !url.lastPathComponent.hasPrefix(".") {
+            let created: Date = (try? url.resourceValues(forKeys: [.creationDateKey]).creationDate) ?? Date.distantPast
+            folders.append((url: url, created: created))
+        }
+        folders.sort { left, right in
+            if left.created != right.created { return left.created < right.created }
+            return left.url.lastPathComponent < right.url.lastPathComponent
+        }
         for folder in folders.dropLast(limit) { try? fm.removeItem(at: folder.url) }
     }
 
