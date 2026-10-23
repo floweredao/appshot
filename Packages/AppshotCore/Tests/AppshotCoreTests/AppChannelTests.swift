@@ -51,6 +51,13 @@ import Testing
         #expect(book.channels.last?.serverName == "")
     }
 
+    @Test func parsesMessageAndDeepLinks() {
+        #expect(DiscordLink.parse("https://discord.com/channels/111/222/333")! == ("111", "222"))
+        #expect(DiscordLink.parse("discord://-/channels/111/222")! == ("111", "222"))
+        #expect(DiscordLink.parse("https://discord.com/channels/@me") == nil)
+        #expect(DiscordLink.parse("") == nil)
+    }
+
     @Test func roundTripsAndFallsBackToEmpty() throws {
         let url = FileManager.default.temporaryDirectory.appending(path: "appshot-book-\(UUID().uuidString).json")
         defer { try? FileManager.default.removeItem(at: url) }
