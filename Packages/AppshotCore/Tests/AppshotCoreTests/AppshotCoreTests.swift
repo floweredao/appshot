@@ -92,6 +92,23 @@ private func inboxLine(_ id: String, _ channel: String, _ text: String) -> Strin
         #expect(config.eventsLogURL.path == "/abs/events.log")
         #expect(config.inboxURL.path.hasPrefix(home))
     }
+
+    @Test func emptyOverridesUseDefaultFilesAndUnknownKeysAreIgnored() throws {
+        let root = try tempRoot()
+        let url = root.appending(path: "config.json")
+        let json = #"""
+        {"stateDir":"/srv/appshot/state","inboxDir":"/srv/appshot/inbox","fallbackChannel":"g",
+         "channels":[{"key":"g","label":"g","id":"1"}],"theme":"dark",
+         "eventsLog":"","ownerInbox":"","handledIds":"","catalog":{"cli":"/bin/true","path":""}}
+        """#
+        try json.write(to: url, atomically: true, encoding: .utf8)
+
+        let config = try AppshotConfig.load(from: url)
+        #expect(config.eventsLogURL.path == "/srv/appshot/state/events.log")
+        #expect(config.ownerInboxURL.path == "/srv/appshot/state/owner-inbox.jsonl")
+        #expect(config.handledIdsURL.path == "/srv/appshot/state/handled-ids.txt")
+        #expect(config.catalog?.cacheURL == CatalogSource(cli: "/bin/true").cacheURL)
+    }
 }
 
 @Suite struct InboxWriterTests {
