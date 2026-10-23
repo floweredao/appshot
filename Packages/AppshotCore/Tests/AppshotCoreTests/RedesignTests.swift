@@ -57,6 +57,12 @@ import Testing
         #expect(index.search("", recent: ["c3"]).first?.id == "c3")
     }
 
+    @Test func contextIsNilWhenThereIsNothingToShow() {
+        #expect(Destination(id: "t9", name: "notes", kind: .thread).context == nil)
+        #expect(Destination(id: "c9", name: "general", kind: .channel, server: "").context == nil)
+        #expect(Destination(id: "t9", name: "notes", kind: .thread, parent: "coding").context == "#coding")
+    }
+
     @Test func recentPushMovesToFrontAndCaps() {
         #expect(RecentDestinations.push("b", into: ["a", "b", "c"], limit: 2) == ["b", "a"])
     }
