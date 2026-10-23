@@ -154,7 +154,15 @@ public struct InboxWriter: Sendable {
             try writeFile(try encoder.encode(meta), named: "meta.json", in: staging)
 
             let final = try publish(staging, base: base)
-            if let eventsLog { try appendEvent(Self.eventLine(for: final), to: eventsLog) }
+            if let eventsLog {
+                do {
+                    try appendEvent(Self.eventLine(for: final), to: eventsLog)
+                } catch {
+                    // Without its event the folder would sit in the inbox unannounced while the caller reports a failure.
+                    try? fm.removeItem(at: final)
+                    throw error
+                }
+            }
             return final
         } catch {
             try? fm.removeItem(at: staging)
