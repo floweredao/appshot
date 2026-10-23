@@ -235,6 +235,15 @@ private func inboxLine(_ id: String, _ channel: String, _ text: String) -> Strin
         #expect(composed.markdown.contains("characters omitted"))
         #expect(composed.markdown.hasSuffix("line 99\n"))
     }
+
+    @Test func fieldFenceOutlastsBackticksInside() {
+        let composed = TextComposer.compose(
+            appName: "Editor", windowTitle: nil, url: nil, document: nil,
+            lines: [.init(.field, "Run:\n```sh\nmake\n```"), .init(.body, "after")],
+            traversalTruncated: false
+        )
+        #expect(composed.markdown == "# Editor\n\n\n````\nRun:\n```sh\nmake\n```\n````\nafter\n")
+    }
 }
 
 @Suite struct DualModifierDetectorTests {
