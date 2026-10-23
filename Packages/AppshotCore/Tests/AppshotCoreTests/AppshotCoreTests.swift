@@ -73,6 +73,19 @@ private func inboxLine(_ id: String, _ channel: String, _ text: String) -> Strin
         #expect(resolved.id == "100")
         #expect(resolved.source == .lastReceived)
     }
+
+    @Test func keepsCompleteFirstLineWhenTailStartsOnLineBoundary() throws {
+        let root = try tempRoot()
+        let config = makeConfig(root)
+        let early = inboxLine("1", "300", "early")
+        let late = inboxLine("2", "200", "late")
+        try "2\n".write(to: config.handledIdsURL, atomically: true, encoding: .utf8)
+        for trailer in ["", "\n"] {
+            try (early + "\n" + late + trailer).write(to: config.ownerInboxURL, atomically: true, encoding: .utf8)
+            let resolved = ChannelResolver(config: config, tailBytes: late.utf8.count + trailer.utf8.count).resolve()
+            #expect(resolved == ResolvedChannel(id: "200", label: "#coding", source: .lastHandled, lastMessage: "late"), "\(trailer.debugDescription)")
+        }
+    }
 }
 
 @Suite struct ConfigTests {
