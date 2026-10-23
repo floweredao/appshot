@@ -35,6 +35,17 @@ public enum TextComposer {
         return ("\(head)\n\n_(\(omitted) characters omitted)_\n\n\(tail)", omitted)
     }
 
+    /// A code fence longer than any backtick run in `text`, so a field that holds Markdown stays inside its block.
+    static func fence(for text: String) -> String {
+        var longest = 0
+        var run = 0
+        for character in text {
+            run = character == "`" ? run + 1 : 0
+            longest = max(longest, run)
+        }
+        return String(repeating: "`", count: max(3, longest + 1))
+    }
+
     public static func composePage(
         appName: String,
         windowTitle: String?,
@@ -87,7 +98,7 @@ public enum TextComposer {
             let rendered: String = switch line.kind {
             case .heading: "\n## \(text.replacingOccurrences(of: "\n", with: " "))\n\n"
             case .body: "\(text)\n"
-            case .field: "\n```\n\(text)\n```\n"
+            case .field: "\n\(fence(for: text))\n\(text)\n\(fence(for: text))\n"
             }
             body += rendered
         }
