@@ -57,6 +57,13 @@ import Testing
         #expect(index.search("", recent: ["c3"]).first?.id == "c3")
     }
 
+    @Test func searchIgnoresTheHashChannelTitlesShow() throws {
+        let index = DestinationIndex(pinned: [], catalog: try catalog())
+        #expect(index.search("#coding").map(\.id) == ["c2", "t1"])
+        #expect(index.search("home #gen").map(\.id) == ["c1"])
+        #expect(index.search("#").map(\.id) == index.search("").map(\.id))
+    }
+
     @Test func recentPushMovesToFrontAndCaps() {
         #expect(RecentDestinations.push("b", into: ["a", "b", "c"], limit: 2) == ["b", "a"])
     }
