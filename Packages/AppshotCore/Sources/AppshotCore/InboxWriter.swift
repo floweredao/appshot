@@ -189,9 +189,12 @@ public struct InboxWriter: Sendable {
 
     public func prune(keeping limit: Int) {
         let fm = FileManager.default
-        guard let names = try? fm.contentsOfDirectory(atPath: inboxDir.path) else { return }
-        let folders = names.filter { !$0.hasPrefix(".") }.sorted()
-        for name in folders.dropLast(limit) { try? fm.removeItem(at: inboxDir.appending(path: name)) }
+        guard let urls = try? fm.contentsOfDirectory(at: inboxDir, includingPropertiesForKeys: [.creationDateKey]) else { return }
+        // Oldest first by creation date: folder names are local time, which runs backwards when the clock or time zone moves back.
+        let folders = urls.filter { !$0.lastPathComponent.hasPrefix(".") }
+            .map { (url: $0, created: (try? $0.resourceValues(forKeys: [.creationDateKey]).creationDate) ?? .distantPast) }
+            .sorted { $0.created != $1.created ? $0.created < $1.created : $0.url.lastPathComponent < $1.url.lastPathComponent }
+        for folder in folders.dropLast(limit) { try? fm.removeItem(at: folder.url) }
     }
 
     private func rename(_ from: URL, to: URL) throws {
