@@ -152,6 +152,19 @@ private func inboxLine(_ id: String, _ channel: String, _ text: String) -> Strin
         let leftovers = try FileManager.default.contentsOfDirectory(atPath: config.inboxURL.path)
         #expect(leftovers.filter { $0.hasSuffix(".tmp") }.isEmpty)
     }
+
+    @Test func failedEventTakesBackThePublishedFolder() throws {
+        let root = try tempRoot()
+        let config = makeConfig(root)
+        let blocker = root.appending(path: "state/blocked")
+        try "file".write(to: blocker, atomically: true, encoding: .utf8)
+        let writer = InboxWriter(inboxDir: config.inboxURL, eventsLog: blocker.appending(path: "events.log"))
+
+        #expect(throws: (any Error).self) {
+            try writer.write(AppshotPayload(png: Data([1]), jpeg: nil, markdown: "a", meta: meta()))
+        }
+        #expect(try FileManager.default.contentsOfDirectory(atPath: config.inboxURL.path).isEmpty)
+    }
 }
 
 @Suite struct ImageEncodingTests {
