@@ -40,6 +40,17 @@ import Testing
         #expect(book.channels.isEmpty)
     }
 
+    @Test func mergeKeepsKnownServerNameWhenDiscordShowsNone() {
+        var book = AppChannelBook(channels: [channel("1", "10", "general")])
+        let blank = book.merge([channel("1", "10", "general", serverName: "")])
+        book.merge([channel("1", "11", "coding", serverName: "")])
+        #expect(!blank)
+        #expect(book.channels.map(\.serverName) == ["Team", "Team"])
+        let unknown = book.merge([channel("2", "20", "lobby", serverName: "")])
+        #expect(unknown)
+        #expect(book.channels.last?.serverName == "")
+    }
+
     @Test func roundTripsAndFallsBackToEmpty() throws {
         let url = FileManager.default.temporaryDirectory.appending(path: "appshot-book-\(UUID().uuidString).json")
         defer { try? FileManager.default.removeItem(at: url) }
