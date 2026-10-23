@@ -244,6 +244,36 @@ private func inboxLine(_ id: String, _ channel: String, _ text: String) -> Strin
         )
         #expect(composed.markdown == "# Editor\n\n\n````\nRun:\n```sh\nmake\n```\n````\nafter\n")
     }
+
+    @Test func emptyTraversalSaysSoAndKeepsTruncationNotice() {
+        let composed = TextComposer.compose(
+            appName: "A", windowTitle: nil, url: nil, document: nil, lines: [.init(.body, "  \n ")], traversalTruncated: true
+        )
+        #expect(composed.markdown == "# A\n\n_(no readable text from accessibility)_\n\n_(text truncated)_\n")
+        #expect(composed.truncated)
+        #expect(composed.bodyCharacters == 0)
+    }
+
+    @Test func clipCountsCharactersSoEmojiAndHangulStayWhole() {
+        let family = "👨‍👩‍👧"
+        let text = String(repeating: family, count: 50) + String(repeating: "한", count: 50)
+        let clipped = TextComposer.clip(text, limit: 10)
+        #expect(clipped.omitted == 90)
+        #expect(clipped.text == String(repeating: family, count: 7) + "\n\n_(90 characters omitted)_\n\n" + String(repeating: "한", count: 3))
+        #expect(TextComposer.clip(String(repeating: family, count: 10), limit: 10).omitted == 0)
+        #expect(TextComposer.clip("", limit: 10).text == "")
+    }
+
+    @Test func composePageNormalizesLineEndingsAndHandlesEmptyText() {
+        let page = TextComposer.composePage(
+            appName: "Terminal", windowTitle: "", url: nil, selection: "  \n ", text: "a\r\nb\r\n\r\n\r\n\r\nc"
+        )
+        #expect(page.markdown == "# Terminal\n\na\nb\n\nc\n")
+        #expect(page.bodyCharacters == 6)
+        let empty = TextComposer.composePage(appName: "A", windowTitle: nil, url: nil, selection: nil, text: " \n ")
+        #expect(empty.markdown == "# A\n\n_(no readable text)_\n")
+        #expect(!empty.truncated)
+    }
 }
 
 @Suite struct DualModifierDetectorTests {
