@@ -481,7 +481,7 @@ struct PanelView: View {
             }
             .frame(width: 34, height: 34)
             .accessibilityHidden(true)
-            HStack(alignment: .firstTextBaseline, spacing: 12) {
+            HStack(alignment: .center, spacing: 12) {
                 VStack(alignment: .leading, spacing: 2) {
                     Text(model.appName)
                         .font(.system(size: 15, weight: .semibold))
