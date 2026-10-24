@@ -138,8 +138,69 @@ public enum CommandTemplate {
         return output
     }
 
+    /// Quotes each value for where it lands: bare, inside the template's own '…' or "…", inside $( … ),
+    /// or inside backticks, so a placeholder the user wrapped in quotes cannot be broken out of.
+    /// Comments are copied as they are, so an apostrophe in one does not open a quote.
     public static func shell(_ template: String, values: [String: String]) -> String {
-        render(template, values: values, escape: shellQuote)
+        var output = ""
+        var open: [Character] = []
+        var index = template.startIndex
+        while index < template.endIndex {
+            let character = template[index]
+            let next = template.index(after: index)
+            let top = open.last
+            if character == "{", let close = template[index...].firstIndex(of: "}"),
+               let value = values[String(template[next..<close])] {
+                output += shellQuote(value, inside: top)
+                index = template.index(after: close)
+                continue
+            }
+            if top == "'" {
+                if character == "'" { open.removeLast() }
+            } else if character == "\\", next < template.endIndex {
+                output.append(character)
+                output.append(template[next])
+                index = template.index(after: next)
+                continue
+            } else if top == "\"" {
+                if character == "\"" {
+                    open.removeLast()
+                } else if character == "`" {
+                    open.append(character)
+                } else if character == "(", output.last == "$" {
+                    open.append(character)
+                }
+            } else if character == "#", startsWord(after: output.last) {
+                let end = template[index...].firstIndex(of: "\n") ?? template.endIndex
+                output.append(contentsOf: template[index..<end])
+                index = end
+                continue
+            } else if character == "'" || character == "\"" || character == "(" {
+                open.append(character)
+            } else if character == ")" {
+                if top == "(" { open.removeLast() }
+            } else if character == "`" {
+                if top == "`" { open.removeLast() } else { open.append(character) }
+            }
+            output.append(character)
+            index = next
+        }
+        return output
+    }
+
+    private static func shellQuote(_ value: String, inside open: Character?) -> String {
+        let quoted = shellQuote(value)
+        if open == "'" { return "'" + quoted + "'" }
+        if open == "\"" { return "\"" + quoted + "\"" }
+        guard open == "`" else { return quoted }
+        let backslashes = quoted.replacingOccurrences(of: "\\", with: "\\\\")
+        let backticks = backslashes.replacingOccurrences(of: "`", with: "\\`")
+        return backticks.replacingOccurrences(of: "$", with: "\\$")
+    }
+
+    private static func startsWord(after previous: Character?) -> Bool {
+        guard let previous else { return true }
+        return previous.isWhitespace || ";&|(".contains(previous)
     }
 
     public static func url(_ template: String, values: [String: String]) -> URL? {
