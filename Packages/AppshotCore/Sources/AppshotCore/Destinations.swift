@@ -147,12 +147,13 @@ public struct Destination: Sendable, Hashable, Identifiable {
     }
 
     public var context: String? {
-        switch kind {
+        let text: String? = switch kind {
         case .channel: server
         case .thread: [server, parent.map { "#\($0)" }].compactMap { $0 }.joined(separator: " › ")
         case .appChannel: [parent, server].compactMap { $0 }.joined(separator: " › ")
         default: nil
         }
+        return text?.isEmpty == false ? text : nil
     }
 
     public static func cleanThreadName(_ name: String) -> String {

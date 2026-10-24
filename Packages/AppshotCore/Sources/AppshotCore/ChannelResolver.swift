@@ -59,11 +59,12 @@ public struct ChannelResolver: Sendable {
         guard let handle = try? FileHandle(forReadingFrom: config.ownerInboxURL) else { return [] }
         defer { try? handle.close() }
         guard let size = try? handle.seekToEnd() else { return [] }
-        let start = size > UInt64(tailBytes) ? size - UInt64(tailBytes) : 0
+        // One byte before the window shows whether the window starts on a line boundary.
+        let start = size > UInt64(tailBytes) ? size - UInt64(tailBytes) - 1 : 0
         guard (try? handle.seek(toOffset: start)) != nil,
               let data = try? handle.readToEnd() else { return [] }
         var lines = data.split(separator: UInt8(ascii: "\n"))
-        if start > 0, !lines.isEmpty { lines.removeFirst() }
+        if start > 0, data.first != UInt8(ascii: "\n"), !lines.isEmpty { lines.removeFirst() }
         let decoder = JSONDecoder()
         // A message cut inside a multi-byte character still names its channel.
         return lines.compactMap { try? decoder.decode(Record.self, from: Data(String(decoding: $0, as: UTF8.self).utf8)) }
