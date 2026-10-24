@@ -396,6 +396,8 @@ final class AppController {
         readAppChannels()
     }
 
+    static let expandedSectionsKey = "pickerExpandedSections"
+
     static var capturesURL: URL {
         FileManager.default.homeDirectoryForCurrentUser.appending(path: "Library/Application Support/Appshot/Captures", directoryHint: .isDirectory)
     }
@@ -542,6 +544,8 @@ final class AppController {
         model.favoriteIDs = favoriteIDs
         model.numberShortcuts = numberShortcuts
         model.onFavoritesChanged = { [weak self] ids in self?.favoriteIDs = ids }
+        model.expandedSections = UserDefaults.standard.dictionary(forKey: Self.expandedSectionsKey) as? [String: Bool] ?? [:]
+        model.onSectionsChanged = { UserDefaults.standard.set($0, forKey: Self.expandedSectionsKey) }
         model.destination = preferred ?? index.all.first
         let capture = Task.detached(priority: .userInitiated) { await Self.capture(target) }
         model.onCancel = { [weak self] in

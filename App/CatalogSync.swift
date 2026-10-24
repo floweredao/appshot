@@ -24,7 +24,10 @@ enum CatalogSync {
                 channels[id] = try? run(source, ["channel", "list", "--server", id])
                 threads[id] = try? run(source, ["thread", "list", "--server", id])
             }
-            let catalog = try DiscordCatalog.assemble(servers: serversJSON, channels: channels, threads: threads)
+            var catalog = try DiscordCatalog.assemble(servers: serversJSON, channels: channels, threads: threads)
+            struct Bot: Decodable { var username: String; var global_name: String? }
+            catalog.botName = (try? run(source, ["whoami"])).flatMap { try? JSONDecoder().decode(Bot.self, from: $0) }
+                .map { $0.global_name ?? $0.username }
             try catalog.save(to: source.cacheURL)
             return catalog
         }.value

@@ -36,6 +36,8 @@ final class PanelModel {
     var favoriteIDs: [String] = []
     var numberShortcuts = true
     var onFavoritesChanged: ([String]) -> Void = { _ in }
+    var expandedSections: [String: Bool] = [:]
+    var onSectionsChanged: ([String: Bool]) -> Void = { _ in }
     var destination: Destination?
     var pickerOpen = false
     var query = ""
@@ -58,7 +60,21 @@ final class PanelModel {
 
     var canSend: Bool { phase != .sending && destination != nil }
 
-    var results: [Destination] { index.search(query, recent: recentIDs, favorites: favoriteIDs) }
+    var results: [Destination] { index.search(query, recent: recentIDs, favorites: favoriteIDs, expanded: expandedSections) }
+
+    var searching: Bool { !query.trimmingCharacters(in: .whitespaces).isEmpty }
+
+    func isCollapsed(_ section: DestinationIndex.Section) -> Bool {
+        !searching && section.isCollapsed(expandedSections)
+    }
+
+    func toggleSection(_ section: DestinationIndex.Section) {
+        guard section.collapsible else { return }
+        let current = results.indices.contains(highlighted) ? results[highlighted].id : nil
+        expandedSections[section.id] = section.isCollapsed(expandedSections)
+        onSectionsChanged(expandedSections)
+        highlighted = max(0, results.firstIndex { $0.id == current } ?? 0)
+    }
 
     var sections: [DestinationIndex.Section] {
         if query.trimmingCharacters(in: .whitespaces).isEmpty { return index.sections(recent: recentIDs, favorites: favoriteIDs) }
@@ -755,17 +771,21 @@ private struct DestinationPicker: View {
                     LazyVStack(alignment: .leading, spacing: 1) {
                         let flat = model.results
                         ForEach(model.sections) { section in
-                            SectionTitle(section: section)
-                            ForEach(section.items) { item in
+                            let collapsed = model.isCollapsed(section)
+                            SectionTitle(section: section, collapsed: collapsed) { model.toggleSection(section) }
+                            ForEach(collapsed ? [] : section.items) { item in
                                 let position = flat.firstIndex(of: item) ?? -1
                                 DestinationRow(
                                     item: item,
+                                    context: section.id.hasPrefix("server:") ? item.contextInServer
+                                        : item.kind == .channel ? nil : item.context ?? DestinationSubtitle.text(item),
                                     highlighted: position == model.highlighted,
                                     selected: item.id == model.destination?.id,
                                     number: model.numberShortcuts && position >= 0 && position < 9 ? position + 1 : nil,
                                     favorite: model.favoriteIDs.contains(item.id),
                                     toggleFavorite: { model.toggleFavorite(item) }
                                 )
+                                .padding(.leading, section.id.hasPrefix("server:") && item.kind == .thread ? 18 : 0)
                                 .id(item.id)
                                 .onTapGesture { model.choose(item) }
                             }
@@ -794,8 +814,46 @@ private struct DestinationPicker: View {
 
 private struct SectionTitle: View {
     let section: DestinationIndex.Section
+    var collapsed = false
+    var toggle: () -> Void = {}
 
     var body: some View {
+        if section.collapsible {
+            Button(action: toggle) {
+                HStack(spacing: 5) {
+                    Image(systemName: "chevron.right")
+                        .font(.system(size: 9, weight: .bold))
+                        .rotationEffect(.degrees(collapsed ? 0 : 90))
+                        .frame(width: 10)
+                    title
+                    if collapsed {
+                        Text(verbatim: "\(section.items.count)")
+                            .monospacedDigit()
+                            .foregroundStyle(.tertiary)
+                    }
+                    Spacer(minLength: 0)
+                }
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .font(.system(size: 11.5, weight: .semibold))
+            .foregroundStyle(.secondary)
+            .padding(.horizontal, 8)
+            .padding(.top, 8)
+            .padding(.bottom, 2)
+            .accessibilityValue(collapsed ? Text("Collapsed") : Text("Expanded"))
+            .accessibilityHint(collapsed ? Text("Show this server's channels") : Text("Hide this server's channels"))
+        } else {
+            title
+                .font(.system(size: 11.5, weight: .semibold))
+                .foregroundStyle(.secondary)
+                .padding(.horizontal, 8)
+                .padding(.top, 8)
+                .padding(.bottom, 2)
+        }
+    }
+
+    private var title: some View {
         Group {
             if section.id == "favorites" {
                 Label("Favorites", systemImage: "star.fill")
@@ -807,16 +865,12 @@ private struct SectionTitle: View {
                 Text(verbatim: title)
             }
         }
-        .font(.system(size: 11.5, weight: .semibold))
-        .foregroundStyle(.secondary)
-        .padding(.horizontal, 8)
-        .padding(.top, 8)
-        .padding(.bottom, 2)
     }
 }
 
 private struct DestinationRow: View {
     let item: Destination
+    var context: String?
     let highlighted: Bool
     let selected: Bool
     var number: Int?
@@ -827,7 +881,7 @@ private struct DestinationRow: View {
         HStack(spacing: 9) {
             DestinationIcon(kind: item.kind, id: item.id)
             Text(item.listTitle).font(.system(size: 13.5)).lineLimit(1)
-            if let context = item.context ?? DestinationSubtitle.text(item), item.kind != .channel {
+            if let context {
                 Text(context).font(.system(size: 12)).foregroundStyle(highlighted ? .white.opacity(0.85) : .secondary).lineLimit(1)
             }
             Spacer(minLength: 4)
@@ -970,7 +1024,9 @@ enum DestinationSubtitle {
         case .clipboard: String(localized: "Image and text")
         case .folder: String(localized: "PNG, JPEG, text, metadata")
         case .share: String(localized: "Mail, Messages, AirDrop…")
-        case .app: String(localized: "Open and paste")
+        case .app:
+            DiscordLink.isDiscord(bundleID: String(destination.id.dropFirst(TargetID.app("").count)))
+                ? String(localized: "Paste into the open channel") : String(localized: "Open and paste")
         case .command: String(localized: "Custom command")
         case .direct, .channel, .thread, .appChannel: nil
         }
