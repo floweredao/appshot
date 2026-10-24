@@ -807,6 +807,22 @@
         }
       }
     },
+    "Collapsed": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Collapsed"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "접힘"
+          }
+        }
+      }
+    },
     "Color": {
       "localizations": {
         "en": {
@@ -1271,6 +1287,22 @@
         }
       }
     },
+    "Expanded": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Expanded"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "펼침"
+          }
+        }
+      }
+    },
     "Favorite": {
       "localizations": {
         "en": {
@@ -1379,6 +1411,22 @@
           "stringUnit": {
             "state": "translated",
             "value": "초록"
+          }
+        }
+      }
+    },
+    "Hide this server's channels": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hide this server's channels"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "이 서버의 채널 숨기기"
           }
         }
       }
@@ -2035,6 +2083,22 @@
           "stringUnit": {
             "state": "translated",
             "value": "앱에 붙여넣기"
+          }
+        }
+      }
+    },
+    "Paste into the open channel": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Paste into the open channel"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "열린 채널에 붙여넣기"
           }
         }
       }
@@ -2839,6 +2903,22 @@
         }
       }
     },
+    "Show this server's channels": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Show this server's channels"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "이 서버의 채널 보기"
+          }
+        }
+      }
+    },
     "Take Appshot (%@)": {
       "localizations": {
         "en": {
@@ -3539,6 +3619,22 @@
           "stringUnit": {
             "state": "translated",
             "value": "지금은 %@ 버전이에요. 받은 파일을 확인한 뒤 업데이트하고 다시 시작해요."
+          }
+        }
+      }
+    },
+    "demo.bot": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Assistant"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "비서"
           }
         }
       }

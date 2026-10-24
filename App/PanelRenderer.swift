@@ -33,7 +33,16 @@ enum PanelRenderer {
             view = NSHostingView(rootView: Form { UpdatesSection(updater: controller.updater) }.formStyle(.grouped).frame(width: 600, height: 240))
         default:
             let model = demoModel(request)
-            if request.scene == "picker" {
+            if request.scene == "servers" {
+                model.index = DestinationIndex(
+                    pinned: [ChannelOption(key: "dm", label: String(localized: "demo.dm"), id: "d1", kind: "direct")],
+                    catalog: demoCatalog()
+                )
+                model.recentIDs = []
+                model.favoriteIDs = []
+                model.expandedSections = ["server:\(String(localized: "demo.server"))": false]
+            }
+            if request.scene == "picker" || request.scene == "servers" {
                 model.pickerOpen = true
                 model.query = ""
                 model.focus = .search
@@ -84,20 +93,13 @@ enum PanelRenderer {
         model.textCharacters = 18_432
         model.textMethod = .browserScript
         model.phase = .ready
-        let catalog = DiscordCatalog(updatedAt: Date(), servers: [
-            .init(id: "s1", name: String(localized: "demo.server"), channels: [
-                .init(id: "c1", name: "general"),
-                .init(id: "c2", name: "design", threads: [
-                    .init(id: "t1", name: String(localized: "demo.thread.icon")),
-                    .init(id: "t2", name: String(localized: "demo.thread.onboarding")),
-                ]),
-                .init(id: "c3", name: "release", threads: [.init(id: "t3", name: String(localized: "demo.thread.launch"))]),
-            ]),
-            .init(id: "s2", name: String(localized: "demo.server2"), channels: [.init(id: "c4", name: "reading-list")]),
-        ])
+        let catalog = demoCatalog()
         let pinned = [ChannelOption(key: "dm", label: String(localized: "demo.dm"), id: "d1", kind: "direct")]
         var targets = TargetSettings()
-        targets.apps = [AppTarget(bundleID: "com.apple.Notes", name: String(localized: "demo.notes"))]
+        targets.apps = [
+            AppTarget(bundleID: "com.apple.Notes", name: String(localized: "demo.notes")),
+            AppTarget(bundleID: "com.hnc.Discord", name: "Discord"),
+        ]
         model.index = DestinationIndex(
             pinned: pinned, catalog: catalog,
             targets: targets.destinations(
@@ -109,6 +111,22 @@ enum PanelRenderer {
         model.favoriteIDs = ["d1", "target:app:com.apple.Notes"]
         model.destination = model.index.destination(id: "t1")
         return model
+    }
+
+    private static func demoCatalog() -> DiscordCatalog {
+        DiscordCatalog(updatedAt: Date(), servers: [
+            .init(id: "s1", name: String(localized: "demo.server"), channels: [
+                .init(id: "c1", name: "general"),
+                .init(id: "c2", name: "design", threads: [
+                    .init(id: "t1", name: String(localized: "demo.thread.icon")),
+                    .init(id: "t2", name: String(localized: "demo.thread.onboarding")),
+                ]),
+                .init(id: "c3", name: "release", threads: [.init(id: "t3", name: String(localized: "demo.thread.launch"))]),
+            ]),
+            .init(id: "s2", name: String(localized: "demo.server2"), channels: [
+                "reading-list", "meetups", "introductions", "events", "photos", "books", "off-topic",
+            ].enumerated().map { .init(id: "c\($0.offset + 4)", name: $0.element) }),
+        ], botName: String(localized: "demo.bot"))
     }
 
     private static func decorate(_ model: PanelModel, scene: String) {
