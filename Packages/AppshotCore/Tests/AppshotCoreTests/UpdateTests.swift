@@ -132,4 +132,11 @@ import Testing
         #expect(UpdateCheck.isDue(lastCheck: now.addingTimeInterval(-86_400), now: now))
         #expect(UpdateCheck.isDue(lastCheck: now.addingTimeInterval(3600), now: now))
     }
+
+    @Test func digestMustBeASCIIHex() {
+        let hex = String(repeating: "a", count: 64)
+        #expect(UpdateCheck.sha256Hex(fromDigest: "sha256:" + hex) == hex)
+        // FULLWIDTH LATIN SMALL LETTER A counts as a hex digit for Character.isHexDigit.
+        #expect(UpdateCheck.sha256Hex(fromDigest: "sha256:" + String(repeating: "\u{FF41}", count: 64)) == nil)
+    }
 }

@@ -169,7 +169,15 @@ public struct InboxWriter: Sendable {
             try writeFile(try encoder.encode(meta), named: "meta.json", in: staging)
 
             let final = try publish(staging, base: base)
-            if let eventsLog { try appendEvent(Self.eventLine(for: final), to: eventsLog) }
+            if let eventsLog {
+                do {
+                    try appendEvent(Self.eventLine(for: final), to: eventsLog)
+                } catch {
+                    // Without its event the folder would sit in the inbox unannounced while the caller reports a failure.
+                    try? fm.removeItem(at: final)
+                    throw error
+                }
+            }
             return final
         } catch {
             try? fm.removeItem(at: staging)
@@ -196,9 +204,18 @@ public struct InboxWriter: Sendable {
 
     public func prune(keeping limit: Int) {
         let fm = FileManager.default
-        guard let names = try? fm.contentsOfDirectory(atPath: inboxDir.path) else { return }
-        let folders = names.filter { !$0.hasPrefix(".") }.sorted()
-        for name in folders.dropLast(limit) { try? fm.removeItem(at: inboxDir.appending(path: name)) }
+        guard let urls = try? fm.contentsOfDirectory(at: inboxDir, includingPropertiesForKeys: [.creationDateKey]) else { return }
+        // Oldest first by creation date: folder names are local time, which runs backwards when the clock or time zone moves back.
+        var folders: [(url: URL, created: Date)] = []
+        for url in urls where !url.lastPathComponent.hasPrefix(".") {
+            let created: Date = (try? url.resourceValues(forKeys: [.creationDateKey]).creationDate) ?? Date.distantPast
+            folders.append((url: url, created: created))
+        }
+        folders.sort { left, right in
+            if left.created != right.created { return left.created < right.created }
+            return left.url.lastPathComponent < right.url.lastPathComponent
+        }
+        for folder in folders.dropLast(limit) { try? fm.removeItem(at: folder.url) }
     }
 
     private func rename(_ from: URL, to: URL) throws {

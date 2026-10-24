@@ -152,6 +152,34 @@ private func inboxLine(_ id: String, _ channel: String, _ text: String) -> Strin
         let leftovers = try FileManager.default.contentsOfDirectory(atPath: config.inboxURL.path)
         #expect(leftovers.filter { $0.hasSuffix(".tmp") }.isEmpty)
     }
+
+    @Test func failedEventTakesBackThePublishedFolder() throws {
+        let root = try tempRoot()
+        let config = makeConfig(root)
+        let blocker = root.appending(path: "state/blocked")
+        try "file".write(to: blocker, atomically: true, encoding: .utf8)
+        let writer = InboxWriter(inboxDir: config.inboxURL, eventsLog: blocker.appending(path: "events.log"))
+
+        #expect(throws: (any Error).self) {
+            try writer.write(AppshotPayload(png: Data([1]), jpeg: nil, markdown: "a", meta: meta()))
+        }
+        #expect(try FileManager.default.contentsOfDirectory(atPath: config.inboxURL.path).isEmpty)
+    }
+
+    @Test func pruneKeepsTheNewestFolderWhenTheClockMovesBack() throws {
+        let root = try tempRoot()
+        let config = makeConfig(root)
+        let writer = InboxWriter(inboxDir: config.inboxURL, eventsLog: nil)
+        let payload = AppshotPayload(png: nil, jpeg: nil, markdown: "a", meta: meta())
+        let older = try writer.write(payload, now: Date(timeIntervalSince1970: 1_800_003_600))
+        try FileManager.default.setAttributes([.creationDate: Date(timeIntervalSinceNow: -3600)], ofItemAtPath: older.path)
+        // Written last, after the clock or time zone moved back an hour, so its name sorts first.
+        let newest = try writer.write(payload, now: Date(timeIntervalSince1970: 1_800_000_000))
+
+        writer.prune(keeping: 1)
+
+        #expect(try FileManager.default.contentsOfDirectory(atPath: config.inboxURL.path) == [newest.lastPathComponent])
+    }
 }
 
 @Suite struct ImageEncodingTests {
