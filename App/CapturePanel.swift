@@ -465,18 +465,20 @@ struct PanelView: View {
             }
             .frame(width: 34, height: 34)
             .accessibilityHidden(true)
-            VStack(alignment: .leading, spacing: 2) {
-                Text(model.appName)
-                    .font(.system(size: 15, weight: .semibold))
-                    .lineLimit(1)
-                Text(model.windowTitle ?? " ")
-                    .font(.system(size: 12.5))
-                    .foregroundStyle(.secondary)
-                    .lineLimit(1)
-                    .truncationMode(.middle)
+            HStack(alignment: .firstTextBaseline, spacing: 12) {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(model.appName)
+                        .font(.system(size: 15, weight: .semibold))
+                        .lineLimit(1)
+                    Text(model.windowTitle ?? " ")
+                        .font(.system(size: 12.5))
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
+                        .truncationMode(.middle)
+                }
+                Spacer(minLength: 12)
+                StatusChip(model: model)
             }
-            Spacer(minLength: 12)
-            StatusChip(model: model)
         }
     }
 
@@ -510,7 +512,7 @@ struct PanelView: View {
     }
 
     private var destinationRow: some View {
-        HStack(spacing: 10) {
+        HStack(alignment: .firstTextBaseline, spacing: 10) {
             Text("Send to")
                 .font(.system(size: 13))
                 .foregroundStyle(.secondary)
@@ -618,9 +620,6 @@ private struct StatusChip: View {
                 Label("Screen text left out", systemImage: "eye.slash")
                     .font(.system(size: 12))
                     .foregroundStyle(.secondary)
-                    .padding(.horizontal, 9)
-                    .padding(.vertical, 4)
-                    .background(Color.primary.opacity(0.06), in: Capsule())
                     .help(Text("Part of the image is hidden, so the window text is not sent."))
             } else if let characters = model.textCharacters {
                 HStack(spacing: 5) {
@@ -632,9 +631,6 @@ private struct StatusChip: View {
                 .font(.system(size: 12))
                 .monospacedDigit()
                 .foregroundStyle(.secondary)
-                .padding(.horizontal, 9)
-                .padding(.vertical, 4)
-                .background(Color.primary.opacity(0.06), in: Capsule())
             }
         }
     }
@@ -942,7 +938,7 @@ private struct KeyHint: View {
     let label: Text
 
     var body: some View {
-        HStack(spacing: 5) {
+        HStack(alignment: .firstTextBaseline, spacing: 5) {
             Text(verbatim: keys)
                 .font(.system(size: 11, weight: .medium, design: .rounded))
                 .padding(.horizontal, 5)

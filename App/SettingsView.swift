@@ -357,17 +357,19 @@ private struct PermissionRow: View {
                 .font(.title3)
                 .foregroundStyle(granted ? .green : .orange)
                 .accessibilityLabel(granted ? Text("Allowed") : Text("Needed"))
-            VStack(alignment: .leading, spacing: 2) {
-                title
-                detail.font(.caption).foregroundStyle(.secondary)
+            HStack(alignment: .firstTextBaseline, spacing: 10) {
+                VStack(alignment: .leading, spacing: 2) {
+                    title
+                    detail.font(.caption).foregroundStyle(.secondary)
+                }
+                Spacer()
+                if granted {
+                    Text("Allowed").font(.callout).foregroundStyle(.secondary)
+                } else {
+                    Button("Allow…", action: request)
+                }
+                Button("Open Settings", action: openSettings)
             }
-            Spacer()
-            if granted {
-                Text("Allowed").font(.callout).foregroundStyle(.secondary)
-            } else {
-                Button("Allow…", action: request)
-            }
-            Button("Open Settings", action: openSettings)
         }
     }
 }
