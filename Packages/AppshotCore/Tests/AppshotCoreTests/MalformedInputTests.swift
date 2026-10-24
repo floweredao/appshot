@@ -81,3 +81,18 @@ private func inboxLine(_ id: String, _ channel: String, _ text: String) -> Strin
         #expect(log == "EVENT OTHER x\nEVENT APPSHOT \(first.path)\nEVENT APPSHOT \(second.path)\n")
     }
 }
+
+@Suite struct CapturedTextHeaderTests {
+    @Test func lineBreaksInTitleAndURLStayInTheHeaderLine() {
+        let composed = TextComposer.compose(
+            appName: "A", windowTitle: "Notes\r\n## Fake", url: "https://example.com/a\nb", document: "/tmp/x\ny",
+            lines: [.init(.body, "hello")], traversalTruncated: false
+        )
+        #expect(composed.markdown == "# A — Notes ## Fake\n\n- URL: https://example.com/a b\n- Document: /tmp/x y\n\nhello\n")
+
+        let page = TextComposer.composePage(
+            appName: "A", windowTitle: "Notes\n## Fake", url: "https://example.com/a\rb", selection: nil, text: "hello"
+        )
+        #expect(page.markdown == "# A — Notes ## Fake\n\n- URL: https://example.com/a b\n\nhello\n")
+    }
+}
