@@ -30,7 +30,7 @@
 - **Real destinations.** Pick a Discord server, channel, or active thread by name, search it, and keep your recent choices at the top. Your DM can carry its own name, like "My DM".
 - **Keyboard first.** ↩ sends, ⌘K opens the destination list, ↑↓ moves, ⌘D stars a favorite, ⌘1–⌘9 picks quickly, and esc goes back or cancels.
 - **English and Korean.** The app follows your macOS language.
-- **Nothing leaves your Mac.** Appshot writes files to a local folder. Your assistant picks them up from there. The app holds no tokens and makes no network calls of its own.
+- **Nothing leaves your Mac unless you send it.** Appshot writes files to a local folder. Your assistant picks them up from there. The app holds no tokens. Its only network traffic of its own is the update check against GitHub, which you can turn off; anything else goes out only through a target you pick, such as a webhook or an app you paste into.
 
 <p align="center"><img src="docs/picker-en-light.png" width="720" alt="Destination picker, light mode"></p>
 <p align="center"><img src="docs/picker-en-dark.png" width="720" alt="Destination picker, dark mode"></p>
@@ -53,7 +53,7 @@ Pick where an appshot goes in the panel with ⌘K. Appshot remembers the last ta
 <p align="center"><img src="docs/discord-en-light.png" width="560" alt="Discord servers in Settings, light mode"></p>
 <p align="center"><img src="docs/discord-en-dark.png" width="560" alt="Discord servers in Settings, dark mode"></p>
 
-Turn targets on or off, add apps, and write commands in **Settings… › Send targets**. Example command: `open -a Preview {screenshot}`.
+Turn the clipboard, folder, and Share targets on or off in **Settings… › Send targets**, add apps in **Settings… › Paste into apps**, and write commands in **Settings… › Custom commands**. Example command: `open -a Preview {screenshot}`.
 
 ### Favorites and number shortcuts
 
@@ -62,6 +62,8 @@ Turn targets on or off, add apps, and write commands in **Settings… › Send t
 - With **Number shortcuts** on (the default), **⌘1–⌘9** picks the destination at that position, counting from the top of the list, whether or not the picker is open. The number appears next to each row. Turn it off in Settings if those keys clash with something you use.
 
 ## Install
+
+Appshot needs macOS 15 or later.
 
 1. Download `Appshot.zip` from the [latest release](https://github.com/floweredao/appshot/releases/latest), unzip it, and move **Appshot.app** to `/Applications`.
 2. Open it. The release is signed with an Apple Development certificate and is not notarized, so the first launch needs a Control-click on the app, then **Open**. To build it yourself instead, see [Build from source](#build-from-source).
@@ -123,6 +125,8 @@ Each appshot is one folder:
   meta.json   app, window, URL, your note, destination, text method, errors
 ```
 
+Appshots sent to the other targets (clipboard, folder, Share, apps, commands) use the same layout in `~/Library/Application Support/Appshot/Captures`, which keeps the latest 50.
+
 Appshot builds the folder in a staging directory, renaming each file from `.tmp`, and then renames the folder into place. Only after that does it append `EVENT APPSHOT <folder>` to the events log, so the assistant never sees a half-written folder.
 
 ## What Appshot reads
@@ -131,9 +135,9 @@ Appshot tries the method that returns the most text first, falls back to the nex
 
 | App | 1st | 2nd | 3rd |
 | --- | --- | --- | --- |
-| Safari, Chrome, Arc, Brave, Edge | Page script: `document.body.innerText`, URL, selection | Accessibility tree (Chromium is asked to expose its full tree) | OCR |
+| Safari, Chrome, Arc, Brave, Edge, Vivaldi, Opera | Page script: `document.body.innerText`, URL, selection | Accessibility tree (Chromium is asked to expose its full tree) | OCR |
 | Terminal, iTerm2 | Scrollback through AppleScript | Accessibility | OCR |
-| Everything else (Mail, Notes, Xcode, Slack, Discord, Ghostty…) | Accessibility tree, all children including off-screen ones | OCR | |
+| Everything else (Firefox, Mail, Notes, Xcode, Slack, Discord, Ghostty…) | Accessibility tree, all children including off-screen ones | OCR | |
 
 Terminals that draw their own text, such as Ghostty, expose only the screen that is currently visible through Accessibility, so the scrollback above it is not included. Appshot's own Settings window can be captured too: press the shortcut while it is in front.
 
@@ -143,7 +147,7 @@ How Codex does it: OpenAI documents that Appshots reads "available text" through
 
 ## Configuration
 
-Machine-specific values never live in the repository. Appshot reads `~/Library/Application Support/Appshot/config.json`:
+Machine-specific values never live in the repository. Appshot reads `~/Library/Application Support/Appshot/config.json`. **Create Template** in **Settings… › Config file** writes the example below to that path:
 
 ```json
 {
@@ -160,22 +164,24 @@ Machine-specific values never live in the repository. Appshot reads `~/Library/A
 
 | Key | Meaning |
 | --- | --- |
-| `stateDir` | Folder with `events.log`, `owner-inbox.jsonl`, and `handled-ids.txt`. Each can be overridden with `eventsLog`, `ownerInbox`, or `handledIds`. |
+| `stateDir` | Folder with `events.log`, `owner-inbox.jsonl`, and `handled-ids.txt`. Each can be overridden with `eventsLog`, `ownerInbox`, or `handledIds` (an absolute path, or one relative to `stateDir`). |
 | `inboxDir` | Where appshot folders are created. Keep it out of `~/Documents`, `~/Desktop`, and `~/Downloads`, or macOS asks for folder access. |
-| `channels` | Destinations pinned at the top of the picker, such as your DM. |
-| `catalog` | Optional. Appshot runs this CLI (`server list`, `channel list`, `thread list`) every `refreshMinutes` minutes and caches servers, channels, and active threads in `~/Library/Caches/Appshot/discord-catalog.json`. The bot token stays inside that CLI. |
-| `fallbackChannel` | Used when no recent conversation can be found. |
+| `channels` | Required. Destinations pinned at the top of the picker, such as your DM. Each needs a `key` and an `id`; `kind` is `direct` (the default), `channel`, or `thread`. |
+| `catalog` | Optional. Appshot runs this CLI (`server list`, `channel list`, `thread list`, with `--bot <bot>` when `bot` is set) every `refreshMinutes` minutes (default 15) and caches servers, channels, and active threads in `~/Library/Caches/Appshot/discord-catalog.json`, or in `path` if you set one. The bot token stays inside that CLI. |
+| `fallbackChannel` | Required. The `key` of one of `channels`, used when no recent conversation can be found. |
 
-The preselected destination is the channel of the last message your assistant handled: the last ID in `handled-ids.txt`, looked up in `owner-inbox.jsonl`. If that ID isn't found, Appshot uses the last line of `owner-inbox.jsonl`, and if neither exists, `fallbackChannel`.
+The preselected destination is the channel of the last message your assistant handled: the last ID in `handled-ids.txt`, looked up in `owner-inbox.jsonl`. If that ID isn't found, Appshot uses the last line of `owner-inbox.jsonl`, and if neither exists, `fallbackChannel`. If the last destination you sent to was not the assistant (for example the clipboard or an app), Appshot preselects that one instead.
 
 ## Privacy
 
-- **What is saved:** the screenshot, the window text, your note, and metadata, all in `inboxDir` on your Mac. Also stored locally: the Discord destination list (`~/Library/Caches/Appshot`) and your recent destinations and shortcut (app preferences).
-- **What is sent:** nothing, by Appshot itself. Your assistant decides what to post after reading the folder.
+- **What is saved:** the screenshot, the window text, your note, and metadata, all on your Mac: in `inboxDir` for the assistant, and in `~/Library/Application Support/Appshot/Captures` (the latest 50) for the other targets. Also stored locally: the Discord destination list (`~/Library/Caches/Appshot`), the channels read from the Discord app (`app-channels.json`), and your recent destinations, favorites, targets, and shortcut (app preferences).
+- **What is sent:** nothing to your assistant's chat, by Appshot itself. Your assistant decides what to post after reading the folder. Other targets get what you send them: the app you paste into, the Share service, or your webhook. Appshot's own network traffic is the update check and download from GitHub (see [Updates](#updates)).
 - **What is never read:** password fields.
 - **Repository hygiene:** `scripts/prepush-check.sh` runs gitleaks and scans for emails, home paths, Discord-style IDs, stray images, and personal strings before every push.
 
 ## Build from source
+
+You need Xcode 16 or later (Swift 6 and the macOS 15 SDK), XcodeGen, and an Apple Development signing certificate.
 
 ```sh
 brew install xcodegen
@@ -192,7 +198,7 @@ Scripting:
 open -n -W -a Appshot --stdout out.txt --args --appshot-now --note "what is this?" --channel recent
 ```
 
-This captures the front window without showing the panel and prints the folder path. Exit codes: 2 config error, 3 no window, 4 unknown channel, 5 write failure.
+This captures the front window without showing the panel and prints a one-line result, such as `Sent to <destination> · <folder name>`. `--channel` takes `recent` (the default), a `key` from `channels`, a destination ID, or a target such as `clipboard`. `--app <bundle ID>` captures that app's front window instead, `--delay-ms` waits before capturing (default 500), and `--config <path>` reads a different config file. Exit codes: 2 config error, 3 no window, 4 unknown channel, 5 send or write failure.
 
 ## License
 
