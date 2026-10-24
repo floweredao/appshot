@@ -31,7 +31,7 @@
 - **진짜 보낼 곳.** 디스코드 서버·채널·진행 중 스레드를 이름 그대로 고르고 찾을 수 있어요. 최근에 쓴 곳은 맨 위에 와요. DM에도 "내 DM"처럼 알아보기 쉬운 이름을 붙일 수 있어요.
 - **키보드로 다 돼요.** ↩ 보내기, ⌘K 보낼 곳 목록, ⌘E 스크린샷 수정, ↑↓ 이동, ⌘D 즐겨찾기, ⌘1~⌘9 바로 고르기, esc 뒤로·취소.
 - **영어·한국어.** 맥 시스템 언어를 따라가요.
-- **보낸 것이 채널에 보여요.** 디스코드 채널로 보내면 디스코드 앱을 통해 내 계정으로 스크린샷과 메모가 그 채널에 올라가요. 비서에게도 폴더를 넘겨서 비서가 그 메시지에 답할 수 있어요. 앱 안에 토큰이 없고, 앱이 직접 네트워크로 보내는 것도 없어요.
+- **보낸 것이 채널에 보여요.** 디스코드 채널로 보내면 디스코드 앱을 통해 내 계정으로 스크린샷과 메모가 그 채널에 올라가요. 비서에게도 폴더를 넘겨서 비서가 그 메시지에 답할 수 있어요. 앱 안에 토큰이 없어요. 앱이 직접 하는 네트워크 통신은 GitHub에서 업데이트를 확인하는 것뿐이고, 이것도 끌 수 있어요. 그 밖에는 디스코드, 웹훅, 붙여 넣을 앱처럼 내가 고른 대상으로만 나가요.
 
 <p align="center"><img src="docs/picker-ko-light.png" width="720" alt="보낼 곳 고르기, 라이트 모드"></p>
 <p align="center"><img src="docs/picker-ko-dark.png" width="720" alt="보낼 곳 고르기, 다크 모드"></p>
@@ -69,7 +69,7 @@
 | **공유…** | macOS 공유 메뉴(메일, 메시지, AirDrop 등)를 스크린샷과 글자로 열어요. |
 | **사용자 명령** | 셸 명령을 돌리거나, URL scheme을 열거나, 웹훅에 JSON을 POST해요. 자리표시자: `{folder}` `{note}` `{app}` `{title}` `{url}` `{screenshot}` `{preview}` `{text}` `{channel}`. 셸에서는 값을 따옴표로 감싸 주고 `APPSHOT_*` 환경 변수도 넣어요. |
 
-**설정… › 보낼 대상**에서 대상을 켜고 끄고, 앱을 추가하고, 명령을 써요. 명령 예: `open -a Preview {screenshot}`
+클립보드·폴더·공유 대상은 **설정… › 보낼 대상**에서 켜고 끄고, 앱은 **설정… › 앱에 붙여넣기**에서 추가하고, 명령은 **설정… › 사용자 명령**에서 써요. 명령 예: `open -a Preview {screenshot}`
 
 **디스코드 서버와 채널.** 디스코드 앱을 붙여넣기 대상으로 추가하면(설치돼 있으면 **설정… › 디스코드 서버 › 디스코드 추가**), 앱샷이 디스코드 앱에 보이는 채널을 손쉬운 사용으로 읽어 보낼 곳 목록에 서버별로, 디스코드 아이콘과 함께 보여 줘요. 채널을 고르면 디스코드에서 그 채널을 열고 거기에 붙여 넣어요. **모든 서버 읽기**를 누르면 서버 사이드바의 서버를 하나씩 잠깐 열어 채널을 읽고 원래 보던 채널로 돌아와요. 그래서 열려 있던 서버 하나가 아니라 들어가 있는 서버가 모두 나와요. 패널에 안 보이게 할 서버나 채널은 꺼 두면 돼요. 나중에 찾은 서버는 알아서 켜진 채로 나와요. 설정 파일에 비서 봇 목록이 있으면 그 서버도 같은 목록에서 골라요. 디스코드가 없거나, 안 켜져 있거나, 손쉬운 사용 권한이 꺼져 있으면 무엇을 하면 되는지 그 칸에 알려 줘요. 채널 목록은 `~/Library/Application Support/Appshot/app-channels.json`에 저장돼요.
 
@@ -85,6 +85,8 @@
 - **숫자 단축키**가 켜져 있으면(기본값) **⌘1~⌘9**로 목록 위에서부터 그 순서의 보낼 곳을 바로 골라요. 목록을 열지 않아도 돼요. 숫자는 각 줄 옆에 보여요. 다른 단축키와 겹치면 설정에서 끌 수 있어요.
 
 ## 설치
+
+Appshot은 macOS 15 이상이 필요해요.
 
 1. [최신 릴리스](https://github.com/floweredao/appshot/releases/latest)에서 `Appshot.zip`을 받아 풀고 **Appshot.app**을 `/Applications`로 옮겨요.
 2. 앱을 열어요. 릴리스는 Apple Development 인증서로 서명했지만 공증(notarization)은 받지 않았어요. 그래서 처음 열 때는 앱을 Control-클릭한 뒤 **열기**를 눌러야 해요. 직접 빌드하려면 [소스로 빌드](#소스로-빌드)를 보세요.
@@ -151,6 +153,8 @@ flowchart LR
   meta.json   앱·창·주소·한 줄·보낼 곳·글자 얻은 방법·오류
 ```
 
+다른 대상(클립보드, 폴더, 공유, 앱, 명령)으로 보낸 앱샷도 같은 모양으로 `~/Library/Application Support/Appshot/Captures`에 남고, 최근 50개만 유지돼요.
+
 폴더는 임시 폴더에 먼저 만들어요. 그 안의 파일도 하나씩 `.tmp`로 쓴 뒤 이름을 바꿔요. 폴더를 제자리로 옮긴 다음에야 이벤트 로그에 `EVENT APPSHOT <폴더>`를 써요. 그래서 비서가 덜 쓴 폴더를 읽는 일이 없어요.
 
 ## 무엇을 어떻게 읽나요
@@ -159,9 +163,9 @@ flowchart LR
 
 | 앱 | 1순위 | 2순위 | 3순위 |
 | --- | --- | --- | --- |
-| 사파리, 크롬, Arc, Brave, Edge | 페이지 스크립트: `document.body.innerText`, 주소, 선택한 글 | 손쉬운 사용 트리 (크롬 계열엔 전체 트리를 보여 달라고 요청) | OCR |
+| 사파리, 크롬, Arc, Brave, Edge, Vivaldi, Opera | 페이지 스크립트: `document.body.innerText`, 주소, 선택한 글 | 손쉬운 사용 트리 (크롬 계열엔 전체 트리를 보여 달라고 요청) | OCR |
 | 터미널, iTerm2 | AppleScript로 스크롤 기록 | 손쉬운 사용 | OCR |
-| 그 밖의 앱 (메일, 메모, Xcode, 슬랙, 디스코드, Ghostty…) | 손쉬운 사용 트리, 화면 밖 항목까지 전부 | OCR | |
+| 그 밖의 앱 (Firefox, 메일, 메모, Xcode, 슬랙, 디스코드, Ghostty…) | 손쉬운 사용 트리, 화면 밖 항목까지 전부 | OCR | |
 
 Ghostty처럼 글자를 직접 그리는 터미널은 손쉬운 사용으로 지금 보이는 화면만 내어 줘서, 그 위로 스크롤된 기록은 들어가지 않아요. 앱샷 설정 창도 앞에 둔 채 단축키를 누르면 찍혀요.
 
@@ -171,7 +175,7 @@ Codex는 이렇게 해요. OpenAI 문서에 따르면 Appshots는 손쉬운 사�
 
 ## 설정 파일
 
-내 컴퓨터만의 값은 저장소에 넣지 않아요. Appshot은 `~/Library/Application Support/Appshot/config.json`을 읽어요.
+내 컴퓨터만의 값은 저장소에 넣지 않아요. Appshot은 `~/Library/Application Support/Appshot/config.json`을 읽어요. **설정… › 설정 파일**에서 **템플릿 만들기**를 누르면 아래 예시를 그 자리에 만들어 줘요.
 
 ```json
 {
@@ -186,23 +190,25 @@ Codex는 이렇게 해요. OpenAI 문서에 따르면 Appshots는 손쉬운 사�
 }
 ```
 
-- `stateDir`: `events.log`, `owner-inbox.jsonl`, `handled-ids.txt`가 있는 폴더예요. 각 파일은 `eventsLog`, `ownerInbox`, `handledIds`로 따로 정할 수 있어요.
+- `stateDir`: `events.log`, `owner-inbox.jsonl`, `handled-ids.txt`가 있는 폴더예요. 각 파일은 `eventsLog`, `ownerInbox`, `handledIds`로 따로 정할 수 있어요(절대 경로, 또는 `stateDir` 기준 상대 경로).
 - `inboxDir`: 앱샷 폴더를 만드는 곳이에요. `~/Documents`, `~/Desktop`, `~/Downloads` 밖에 두세요. 안에 두면 macOS가 폴더 접근을 물어요.
-- `channels`: 목록 맨 위에 고정할 곳이에요(예: 내 DM).
-- `catalog`: 선택 항목이에요. 이 CLI(`server list`, `channel list`, `thread list`)를 `refreshMinutes`분마다 돌려 서버·채널·진행 중 스레드를 `~/Library/Caches/Appshot/discord-catalog.json`에 담아 둬요. 봇 토큰은 그 CLI 안에만 있어요.
-- `fallbackChannel`: 최근 대화를 못 찾을 때 쓸 곳이에요.
+- `channels`: 꼭 있어야 해요. 목록 맨 위에 고정할 곳이에요(예: 내 DM). 항목마다 `key`와 `id`가 필요하고, `kind`는 `direct`(기본값), `channel`, `thread` 가운데 하나예요.
+- `catalog`: 선택 항목이에요. 이 CLI(`server list`, `channel list`, `thread list`, `bot`이 있으면 `--bot <bot>`도 붙여서)를 `refreshMinutes`분(기본값 15)마다 돌려 서버·채널·진행 중 스레드를 `~/Library/Caches/Appshot/discord-catalog.json`에, `path`를 정했으면 그 파일에 담아 둬요. 봇 토큰은 그 CLI 안에만 있어요.
+- `fallbackChannel`: 꼭 있어야 해요. `channels`에 있는 `key` 하나로, 최근 대화를 못 찾을 때 쓸 곳이에요.
 
-처음 골라져 있는 곳은 비서가 마지막으로 처리한 메시지의 채널이에요. `handled-ids.txt`의 마지막 ID로 `owner-inbox.jsonl`에서 그 메시지를 찾아요. 그 ID가 없으면 `owner-inbox.jsonl`의 마지막 줄 채널을, 둘 다 없으면 `fallbackChannel`을 써요.
+처음 골라져 있는 곳은 비서가 마지막으로 처리한 메시지의 채널이에요. `handled-ids.txt`의 마지막 ID로 `owner-inbox.jsonl`에서 그 메시지를 찾아요. 그 ID가 없으면 `owner-inbox.jsonl`의 마지막 줄 채널을, 둘 다 없으면 `fallbackChannel`을 써요. 마지막으로 보낸 곳이 비서가 아니었다면(예: 클립보드나 앱) 그곳이 대신 골라져 있어요.
 
 ## 개인 정보
 
-- **저장하는 것:** 스크린샷, 창 글자, 내가 쓴 한 줄, 메타데이터. 모두 내 맥의 `inboxDir`에만 남아요. 디스코드 보낼 곳 목록(`~/Library/Caches/Appshot`)과 최근 보낸 곳·단축키(앱 환경설정)도 내 맥에만 저장돼요.
+- **저장하는 것:** 스크린샷, 창 글자, 내가 쓴 한 줄, 메타데이터. 모두 내 맥에만 남아요. 비서로 보낸 것은 `inboxDir`에, 다른 대상으로 보낸 것은 `~/Library/Application Support/Appshot/Captures`(최근 50개)에 있어요. 디스코드 보낼 곳 목록(`~/Library/Caches/Appshot`), 디스코드 앱에서 읽은 채널(`app-channels.json`), 최근 보낸 곳·즐겨찾기·보낼 대상·단축키(앱 환경설정)도 내 맥에만 저장돼요.
 - **모자이크한 앱샷:** 스크린샷 일부를 모자이크하면 창 글자, 주소, 문서 경로는 저장하거나 붙여 넣지 않아요.
-- **보내는 것:** 디스코드로 보낼 때는 스크린샷과 메모를 디스코드 앱이 내 메시지로 올려요. 화면 글자는 디스코드에 **화면 글자 넣기**를 켜지 않으면 폴더에만 남아요. Appshot이 직접 네트워크로 보내는 것은 없고, 올린 메시지 ID는 비서의 CLI에 물어서 알아내요.
+- **보내는 것:** 디스코드로 보낼 때는 스크린샷과 메모를 디스코드 앱이 내 메시지로 올려요. 화면 글자는 디스코드에 **화면 글자 넣기**를 켜지 않으면 폴더에만 남고, 올린 메시지 ID는 비서의 CLI에 물어서 알아내요. 다른 대상은 내가 보낸 것을 받아요(붙여 넣은 앱, 공유 서비스, 웹훅). Appshot이 직접 하는 네트워크 통신은 GitHub에서 업데이트를 확인하고 받는 것뿐이에요([업데이트](#업데이트) 참고).
 - **읽지 않는 것:** 비밀번호 칸.
 - **저장소 관리:** 푸시하기 전마다 `scripts/prepush-check.sh`가 gitleaks를 돌리고 이메일, 홈 경로, 디스코드 ID 모양 숫자, 엉뚱한 그림 파일, 개인 문자열을 찾아요.
 
 ## 소스로 빌드
+
+Xcode 16 이상(Swift 6, macOS 15 SDK), XcodeGen, Apple Development 서명 인증서가 필요해요.
 
 ```sh
 brew install xcodegen
@@ -219,7 +225,7 @@ swift test --package-path Packages/AppshotCore              # 단위 테스트
 open -n -W -a Appshot --stdout out.txt --args --appshot-now --note "이거 뭐야?" --channel recent
 ```
 
-입력창 없이 맨 앞 창을 찍고 폴더 경로를 출력해요. 종료 코드는 2 설정 오류, 3 창 없음, 4 모르는 채널, 5 저장 실패예요.
+입력창 없이 맨 앞 창을 찍고 `<보낼 곳>에 보냄 · <폴더 이름>` 같은 결과 한 줄을 출력해요. `--channel`에는 `recent`(기본값), `channels`의 `key`, 보낼 곳 ID, 또는 `clipboard` 같은 대상을 줄 수 있어요. `--app <번들 ID>`는 그 앱의 맨 앞 창을 찍고, `--delay-ms`는 찍기 전에 기다릴 시간(기본값 500)이고, `--config <경로>`는 다른 설정 파일을 읽어요. 종료 코드는 2 설정 오류, 3 창 없음, 4 모르는 채널, 5 보내기·저장 실패예요.
 
 ## 라이선스
 
