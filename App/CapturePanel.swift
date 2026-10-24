@@ -253,14 +253,6 @@ final class CapturePanel: NSPanel {
     override var canBecomeKey: Bool { true }
     override var canBecomeMain: Bool { false }
 
-    override func resignKey() {
-        super.resignKey()
-        guard let model else { return }
-        MainActor.assumeIsolated {
-            if model.phase != .sending { model.onCancel() }
-        }
-    }
-
     static let margin: CGFloat = 24
     static let resizeDuration: CFTimeInterval = 0.28
     private var resizeTimer: Timer?
