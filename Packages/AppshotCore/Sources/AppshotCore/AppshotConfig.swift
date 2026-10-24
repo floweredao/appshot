@@ -5,12 +5,15 @@ public struct ChannelOption: Codable, Sendable, Hashable, Identifiable {
     public var label: String
     public var id: String
     public var kind: String?
+    /// Server ID for the Discord deep link, when the channel is not in the catalog (an archived thread, for example).
+    public var server: String?
 
-    public init(key: String, label: String, id: String, kind: String? = nil) {
+    public init(key: String, label: String, id: String, kind: String? = nil, server: String? = nil) {
         self.key = key
         self.label = label
         self.id = id
         self.kind = kind
+        self.server = server
     }
 }
 

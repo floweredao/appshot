@@ -116,20 +116,23 @@ enum TargetDelivery {
         }
         try await Task.sleep(for: .milliseconds(waited > 0 ? 700 : 300))
 
-        let text = ClipboardText.compose(note: payload.note, markdown: payload.markdown, limit: 20_000)
+        let texts = ClipboardText.pastes(
+            note: payload.note, markdown: payload.markdown, bundleID: app.bundleID, includeScreenText: app.includeScreenText
+        )
+            .map { [$0 as NSString] as [NSPasteboardWriting] }
         let note = payload.note.trimmingCharacters(in: .whitespacesAndNewlines)
         var steps: [[NSPasteboardWriting]] = []
         switch app.paste {
         case .imageAndText:
             if let image = image(payload) { steps.append([image]) }
-            steps.append([text as NSString])
+            steps += texts
         case .files:
             if !note.isEmpty { steps.append([note as NSString]) }
             var files: [NSURL] = [payload.textFile as NSURL]
             if payload.hasImage { files.insert(payload.screenshot as NSURL, at: 0) }
             steps.append(files)
         case .textOnly:
-            steps.append([text as NSString])
+            steps += texts
         case .imageOnly:
             if let image = image(payload) { steps.append([image]) }
             if !note.isEmpty { steps.append([note as NSString]) }
@@ -144,8 +147,12 @@ enum TargetDelivery {
         if app.pressReturn { KeySender.returnKey() }
     }
 
-    private static func image(_ payload: DeliveryPayload) -> NSImage? {
-        payload.hasImage ? NSImage(contentsOf: payload.screenshot) : nil
+    private static func image(_ payload: DeliveryPayload) -> NSPasteboardItem? {
+        guard payload.hasImage, let data = try? Data(contentsOf: payload.screenshot) else { return nil }
+        let item = NSPasteboardItem()
+        item.setData(data, forType: .png)
+        if let tiff = NSImage(data: data)?.tiffRepresentation { item.setData(tiff, forType: .tiff) }
+        return item
     }
 
     static func run(_ command: CommandTarget, payload: DeliveryPayload) async throws {
