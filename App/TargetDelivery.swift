@@ -29,6 +29,11 @@ enum DeliveryError: Error, CustomStringConvertible {
     case appNotFound(String)
     case appDidNotActivate(String)
     case channelDidNotOpen(String)
+    case messageBoxNotFound(String)
+    case draftInMessageBox(String)
+    case pasteDidNotLand(String)
+    case notSent(String)
+    case notConfirmed(String)
     case command(Int32, String)
     case badURL
     case http(Int)
@@ -39,6 +44,13 @@ enum DeliveryError: Error, CustomStringConvertible {
         case .appNotFound(let name): String(localized: "Could not find \(name).")
         case .appDidNotActivate(let name): String(localized: "\(name) did not come to the front.")
         case .channelDidNotOpen(let name): String(localized: "\(name) did not open the channel.")
+        case .messageBoxNotFound(let name): String(localized: "Could not reach the message box of \(name) in Discord.")
+        case .draftInMessageBox(let name):
+            String(localized: "\(name) already has an unsent message in Discord. Send or clear it there, then try again.")
+        case .pasteDidNotLand(let name): String(localized: "The screenshot and note did not reach the message box of \(name).")
+        case .notSent(let name):
+            String(localized: "Discord did not send the message in \(name). It is still in the message box; press Return there.")
+        case .notConfirmed(let name): String(localized: "Discord does not show the message in \(name).")
         case .command(let code, let output): String(localized: "The command failed (\(code)): \(output)")
         case .badURL: String(localized: "The URL template did not produce a valid URL.")
         case .http(let status): String(localized: "The webhook answered with HTTP \(status).")
@@ -89,23 +101,7 @@ enum TargetDelivery {
     static func paste(
         _ payload: DeliveryPayload, into app: AppTarget, opening link: URL? = nil, ready: (@Sendable () -> Bool)? = nil
     ) async throws {
-        guard let appURL = NSWorkspace.shared.urlForApplication(withBundleIdentifier: app.bundleID) else {
-            throw DeliveryError.appNotFound(app.name)
-        }
-        let configuration = NSWorkspace.OpenConfiguration()
-        configuration.activates = true
-        if let link {
-            _ = try? await NSWorkspace.shared.open([link], withApplicationAt: appURL, configuration: configuration)
-        } else {
-            _ = try? await NSWorkspace.shared.openApplication(at: appURL, configuration: configuration)
-        }
-        var waited = 0
-        while NSWorkspace.shared.frontmostApplication?.bundleIdentifier != app.bundleID {
-            if waited >= 40 { throw DeliveryError.appDidNotActivate(app.name) }
-            NSRunningApplication.runningApplications(withBundleIdentifier: app.bundleID).first?.activate()
-            try await Task.sleep(for: .milliseconds(100))
-            waited += 1
-        }
+        let waited = try await bringToFront(app, opening: link)
         if let ready {
             var checks = 0
             while !(await Task.detached(operation: ready).value) {
@@ -145,6 +141,107 @@ enum TargetDelivery {
             try await Task.sleep(for: .milliseconds(450))
         }
         if app.pressReturn { KeySender.returnKey() }
+    }
+
+    /// Opens the channel in Discord, puts the screenshot and note into that channel's message box, and sends them.
+    /// Each step is checked through Accessibility, so an image viewer, a dialog, or focus in the search field
+    /// cannot swallow the paste or the Return, and a message that did not leave the box is reported, not assumed.
+    static func postToDiscord(
+        _ payload: DeliveryPayload, app: AppTarget, link: URL, channel: String, title: String
+    ) async throws {
+        let bundleID = app.bundleID
+        try await bringToFront(app, opening: link)
+        guard try await poll(for: .seconds(4), { DiscordReader.currentChannel(bundleID: bundleID) == channel }) else {
+            throw DeliveryError.channelDidNotOpen(title)
+        }
+        // A viewer or dialog over the channel keeps focus (and the Return key) to itself until Escape closes it.
+        let before = try await focusMessageBox(bundleID: bundleID, title: title)
+        let waiting = await Task.detached { DiscordReader.composerContent(bundleID: bundleID) }.value
+        guard DiscordComposer.isBlank(before), (waiting?.attachments ?? 0) == 0 else {
+            throw DeliveryError.draftInMessageBox(title)
+        }
+
+        let note = payload.note.trimmingCharacters(in: .whitespacesAndNewlines)
+        var steps: [[NSPasteboardWriting]] = []
+        if let image = image(payload) { steps.append([image]) }
+        steps += ClipboardText.pastes(
+            note: payload.note, markdown: payload.markdown, bundleID: bundleID, includeScreenText: app.includeScreenText
+        ).map { [$0 as NSString] }
+        for objects in steps {
+            NSPasteboard.general.clearContents()
+            NSPasteboard.general.writeObjects(objects)
+            try await Task.sleep(for: .milliseconds(120))
+            KeySender.commandV()
+            try await Task.sleep(for: .milliseconds(300))
+        }
+        let expectImage = payload.hasImage
+        let landed = try await poll(for: .seconds(5)) {
+            guard let box = DiscordReader.composerContent(bundleID: bundleID) else { return false }
+            return DiscordComposer.contains(box.text, note: note) && (!expectImage || box.attachments > 0)
+        }
+        guard landed else { throw DeliveryError.pasteDidNotLand(title) }
+
+        for attempt in 0..<2 {
+            if attempt > 0 { KeySender.escape() }
+            _ = try await focusMessageBox(bundleID: bundleID, title: title)
+            KeySender.returnKey()
+            let sent = try await poll(for: .seconds(4)) {
+                guard let box = DiscordReader.composerContent(bundleID: bundleID) else { return false }
+                return DiscordComposer.isBlank(box.text) && box.attachments == 0
+            }
+            if sent { return }
+        }
+        throw DeliveryError.notSent(title)
+    }
+
+    /// Focuses the message box, pressing Escape between tries to close whatever sits on top of it.
+    @discardableResult
+    private static func focusMessageBox(bundleID: String, title: String) async throws -> String {
+        for attempt in 0..<4 {
+            if attempt > 0 {
+                KeySender.escape()
+                try await Task.sleep(for: .milliseconds(350))
+            }
+            if case .focused(let text) = await Task.detached(operation: { DiscordReader.focusComposer(bundleID: bundleID) }).value {
+                return text
+            }
+        }
+        throw DeliveryError.messageBoxNotFound(title)
+    }
+
+    /// Checks `condition` off the main thread every 150 ms until it holds or `limit` passes.
+    private static func poll(for limit: Duration, _ condition: @escaping @Sendable () -> Bool) async throws -> Bool {
+        let clock = ContinuousClock()
+        let deadline = clock.now + limit
+        while clock.now < deadline {
+            if await Task.detached(operation: condition).value { return true }
+            try await Task.sleep(for: .milliseconds(150))
+        }
+        return await Task.detached(operation: condition).value
+    }
+
+    /// Launches or activates the app, optionally through a link, and waits until it is frontmost.
+    /// Returns how many 100 ms waits that took.
+    @discardableResult
+    private static func bringToFront(_ app: AppTarget, opening link: URL?) async throws -> Int {
+        guard let appURL = NSWorkspace.shared.urlForApplication(withBundleIdentifier: app.bundleID) else {
+            throw DeliveryError.appNotFound(app.name)
+        }
+        let configuration = NSWorkspace.OpenConfiguration()
+        configuration.activates = true
+        if let link {
+            _ = try? await NSWorkspace.shared.open([link], withApplicationAt: appURL, configuration: configuration)
+        } else {
+            _ = try? await NSWorkspace.shared.openApplication(at: appURL, configuration: configuration)
+        }
+        var waited = 0
+        while NSWorkspace.shared.frontmostApplication?.bundleIdentifier != app.bundleID {
+            if waited >= 40 { throw DeliveryError.appDidNotActivate(app.name) }
+            NSRunningApplication.runningApplications(withBundleIdentifier: app.bundleID).first?.activate()
+            try await Task.sleep(for: .milliseconds(100))
+            waited += 1
+        }
+        return waited
     }
 
     private static func image(_ payload: DeliveryPayload) -> NSPasteboardItem? {
@@ -206,6 +303,10 @@ enum KeySender {
 
     static func returnKey() {
         key(CGKeyCode(kVK_Return), flags: [])
+    }
+
+    static func escape() {
+        key(CGKeyCode(kVK_Escape), flags: [])
     }
 
     private static func modifier(down: Bool) {

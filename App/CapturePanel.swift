@@ -1016,9 +1016,7 @@ enum DestinationSubtitle {
         case .clipboard: String(localized: "Image and text")
         case .folder: String(localized: "PNG, JPEG, text, metadata")
         case .share: String(localized: "Mail, Messages, AirDrop…")
-        case .app:
-            DiscordLink.isDiscord(bundleID: String(destination.id.dropFirst(TargetID.app("").count)))
-                ? String(localized: "Paste into the open channel") : String(localized: "Open and paste")
+        case .app: String(localized: "Open and paste")
         case .command: String(localized: "Custom command")
         case .direct, .channel, .thread, .appChannel: nil
         }
