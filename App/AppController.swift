@@ -6,9 +6,29 @@ import SwiftUI
 struct CaptureResult: Sendable {
     var png: Data?
     var jpeg: Data?
+    var image: CGImage?
     var preview: CGImage?
     var text: ExtractedText
     var errors: [String]
+
+    func applying(_ edit: CaptureEdit) -> CaptureResult {
+        guard !edit.isEmpty, let image, let edited = EditRenderer.render(image, edit: edit) else { return self }
+        var result = self
+        result.image = edited
+        result.png = ImageEncoding.png(edited)
+        result.jpeg = ImageEncoding.jpeg(edited)
+        result.preview = ImageEncoding.downscale(edited, maxLongEdge: 1400)
+        if edit.hidesContent {
+            result.text.markdown = ""
+            result.text.characters = 0
+            result.text.truncated = false
+            result.text.nodes = 0
+            result.text.selectionCharacters = nil
+            result.text.url = nil
+            result.text.document = nil
+        }
+        return result
+    }
 }
 
 @MainActor
@@ -477,8 +497,10 @@ final class AppController {
         model.onSend = { [weak self] in
             guard let self, let destination = model.destination else { return }
             model.phase = .sending
+            let edit = model.editor.edit
             Task {
-                let result = await capture.value
+                let captured = await capture.value
+                let result = await Task.detached(priority: .userInitiated) { captured.applying(edit) }.value
                 do {
                     let summary = try await self.deliver(
                         destination, result: result, target: target, note: model.note, source: "panel",
@@ -506,10 +528,7 @@ final class AppController {
         panel.show(model, near: target.bounds)
         Task {
             let result = await capture.value
-            if let preview = result.preview {
-                model.preview = NSImage(cgImage: preview, size: .zero)
-                model.previewAspect = CGFloat(preview.width) / CGFloat(max(preview.height, 1))
-            }
+            if let preview = result.preview { model.setCapture(preview) }
             model.windowTitle = result.text.title
             model.textCharacters = result.text.characters
             model.textMethod = result.text.method
@@ -554,7 +573,7 @@ final class AppController {
         let text = await TextExtractor.extract(target: target, screenshot: image)
         errors.append(contentsOf: text.warnings)
         let preview = image.flatMap { ImageEncoding.downscale($0, maxLongEdge: 1400) }
-        return CaptureResult(png: png, jpeg: jpeg, preview: preview, text: text, errors: errors)
+        return CaptureResult(png: png, jpeg: jpeg, image: image, preview: preview, text: text, errors: errors)
     }
 
     nonisolated static func write(

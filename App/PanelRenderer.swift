@@ -40,6 +40,7 @@ enum PanelRenderer {
                 model.highlighted = 1
             }
             if request.scene == "typing" { model.note = String(localized: "demo.note") }
+            if ["edit", "crop", "edited"].contains(request.scene) { decorate(model, scene: request.scene) }
             view = NSHostingView(rootView: PanelView(model: model))
         }
         view.appearance = appearance
@@ -72,16 +73,13 @@ enum PanelRenderer {
         let model = PanelModel(appName: "Safari", appIcon: safari.map { NSWorkspace.shared.icon(forFile: $0.path) })
         model.renderMode = true
         model.windowTitle = String(localized: "demo.windowTitle")
-        if let path = request.demoImage, let image = NSImage(contentsOfFile: (path as NSString).expandingTildeInPath) {
-            model.preview = image
-            model.previewAspect = image.size.width / max(image.size.height, 1)
+        if let path = request.demoImage, let image = NSImage(contentsOfFile: (path as NSString).expandingTildeInPath),
+           let cgImage = image.cgImage(forProposedRect: nil, context: nil, hints: nil) {
+            model.setCapture(cgImage)
         } else {
             let renderer = ImageRenderer(content: DemoPage().environment(\.colorScheme, .light))
             renderer.scale = 2
-            if let image = renderer.nsImage {
-                model.preview = image
-                model.previewAspect = image.size.width / max(image.size.height, 1)
-            }
+            if let image = renderer.cgImage { model.setCapture(image) }
         }
         model.textCharacters = 18_432
         model.textMethod = .browserScript
@@ -111,6 +109,23 @@ enum PanelRenderer {
         model.favoriteIDs = ["d1", "target:app:com.apple.Notes"]
         model.destination = model.index.destination(id: "t1")
         return model
+    }
+
+    private static func decorate(_ model: PanelModel, scene: String) {
+        let editor = model.editor
+        editor.add(Markup(.pixelate(CGRect(x: 0.36, y: 0.012, width: 0.3, height: 0.056)), color: .red))
+        editor.add(Markup(.arrow(from: CGPoint(x: 0.9, y: 0.5), to: CGPoint(x: 0.78, y: 0.34)), color: .red))
+        editor.add(Markup(.rectangle(CGRect(x: 0.225, y: 0.515, width: 0.755, height: 0.125)), color: .red))
+        editor.add(Markup(.text(at: CGPoint(x: 0.25, y: 0.68), String(localized: "demo.markup")), color: .red))
+        if scene == "edited" {
+            editor.commit { $0.crop = CGRect(x: 0.2, y: 0.07, width: 0.8, height: 0.68) }
+            return
+        }
+        model.beginEditing()
+        if scene == "crop" {
+            editor.commit { $0.crop = CGRect(x: 0.2, y: 0.07, width: 0.8, height: 0.68) }
+            editor.select(.crop)
+        }
     }
 
     private struct DemoPage: View {
