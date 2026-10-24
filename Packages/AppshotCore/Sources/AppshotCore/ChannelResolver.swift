@@ -47,7 +47,9 @@ public struct ChannelResolver: Sendable {
     }
 
     private func lastHandledID() -> String? {
-        guard let text = try? String(contentsOf: config.handledIdsURL, encoding: .utf8) else { return nil }
+        guard let data = try? Data(contentsOf: config.handledIdsURL) else { return nil }
+        // One byte that is not UTF-8, such as from a torn write, must not hide every ID in the file.
+        let text = String(decoding: data, as: UTF8.self)
         return text.split(whereSeparator: \.isNewline)
             .map { $0.trimmingCharacters(in: .whitespaces) }
             .last { !$0.isEmpty }
