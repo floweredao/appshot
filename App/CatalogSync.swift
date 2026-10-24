@@ -36,6 +36,12 @@ enum CatalogSync {
         return Date().timeIntervalSince(catalog.updatedAt) > minutes * 60
     }
 
+    static func messages(_ source: CatalogSource, channel: String, limit: Int) async throws -> Data {
+        try await Task.detached(priority: .userInitiated) {
+            try run(source, ["message", "list", channel, "--limit", String(limit)])
+        }.value
+    }
+
     private static func run(_ source: CatalogSource, _ arguments: [String]) throws -> Data {
         let cli = (source.cli as NSString).expandingTildeInPath
         let process = Process()

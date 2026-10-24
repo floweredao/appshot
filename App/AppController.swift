@@ -407,11 +407,20 @@ final class AppController {
         let channel = AppshotMeta.Channel(id: destination.id, label: destination.title, source: source)
         if destination.kind.isAssistant {
             guard let config else { throw ConfigError.missing("config.json") }
+            var posted: AppshotMeta.Discord?
+            var postError: Error?
+            do {
+                posted = try await postToDiscord(destination, result: result, target: target, note: note, beforeInteractive: beforeInteractive)
+            } catch {
+                postError = error
+            }
             let folder = try await Self.write(
                 result: result, target: target, note: note, channel: channel,
-                inbox: config.inboxURL, eventsLog: config.eventsLogURL
+                inbox: config.inboxURL, eventsLog: config.eventsLogURL, discord: posted,
+                extraErrors: postError.map { [String(localized: "Could not post to Discord: \(String(describing: $0))")] } ?? []
             )
-            return String(localized: "Sent to \(destination.title)") + " · \(folder.lastPathComponent)"
+            if let postError { throw postError }
+            return String(localized: "Posted to \(destination.title) in Discord.") + " · \(folder.lastPathComponent)"
         }
         let folder = try await Self.write(
             result: result, target: target, note: note, channel: channel, inbox: Self.capturesURL, eventsLog: nil
@@ -456,6 +465,51 @@ final class AppController {
         case .direct, .channel, .thread:
             return ""
         }
+    }
+
+    /// Pastes the screenshot and note into the channel through the Discord app and presses Return, so the post is
+    /// the owner's own message, then asks the assistant's bot CLI for that message's ID.
+    private func postToDiscord(
+        _ destination: Destination, result: CaptureResult, target: TargetWindow, note: String, beforeInteractive: () -> Void
+    ) async throws -> AppshotMeta.Discord {
+        guard let server = AssistantPost.server(
+            forChannel: destination.id, kind: destination.kind, pinned: config?.channel(forID: destination.id), catalog: catalog
+        ), let link = DiscordLink.deepLink(server: server, channel: destination.id)
+        else { throw DeliveryError.channelDidNotOpen(destination.title) }
+        var app = targetSettings.apps.first { DiscordLink.isDiscord(bundleID: $0.bundleID) }
+            ?? AppTarget(bundleID: "com.hnc.Discord", name: "Discord")
+        app.pressReturn = true
+        if app.paste == .files || app.paste == .textOnly { app.paste = .imageAndText }
+        let folder = try await Self.write(
+            result: result, target: target, note: note,
+            channel: .init(id: destination.id, label: destination.title, source: "discord"), inbox: Self.capturesURL, eventsLog: nil
+        )
+        InboxWriter(inboxDir: Self.capturesURL, eventsLog: nil).prune(keeping: 50)
+        let trimmed = note.trimmingCharacters(in: .whitespacesAndNewlines)
+        let payload = DeliveryPayload(
+            folder: folder, note: trimmed, markdown: result.text.markdown,
+            appName: target.appName, title: result.text.title, url: result.text.url, targetName: destination.title
+        )
+        let started = Date().addingTimeInterval(-2)
+        beforeInteractive()
+        let bundleID = app.bundleID
+        let channelID = destination.id
+        try await TargetDelivery.paste(payload, into: app, opening: link) {
+            DiscordReader.currentChannel(bundleID: bundleID) == channelID
+        }
+        var message: String?
+        if let source = config?.catalog {
+            for _ in 0..<8 where message == nil {
+                try? await Task.sleep(for: .seconds(1))
+                if let list = try? await CatalogSync.messages(source, channel: channelID, limit: 10) {
+                    message = AssistantPost.postedMessageID(in: list, note: trimmed, expectImage: payload.hasImage, after: started)
+                }
+            }
+        }
+        return .init(
+            server: server, channel: channelID, message: message,
+            url: AssistantPost.messageURL(server: server, channel: channelID, message: message)
+        )
     }
 
     func shoot() {
@@ -578,11 +632,12 @@ final class AppController {
 
     nonisolated static func write(
         result: CaptureResult, target: TargetWindow, note: String,
-        channel: AppshotMeta.Channel, inbox: URL, eventsLog: URL?, now: Date = Date()
+        channel: AppshotMeta.Channel, inbox: URL, eventsLog: URL?, discord: AppshotMeta.Discord? = nil,
+        extraErrors: [String] = [], now: Date = Date()
     ) async throws -> URL {
         try await Task.detached(priority: .userInitiated) {
             let text = result.text
-            let meta = AppshotMeta(
+            var meta = AppshotMeta(
                 createdAt: ISO8601DateFormatter().string(from: now),
                 app: .init(name: target.appName, bundleID: target.bundleID, pid: target.pid),
                 window: .init(
@@ -596,8 +651,9 @@ final class AppController {
                     characters: text.characters, truncated: text.truncated, nodes: text.nodes,
                     method: text.method?.rawValue, attempts: text.attempts, selectionCharacters: text.selectionCharacters
                 ),
-                errors: result.errors
+                errors: result.errors + extraErrors
             )
+            meta.discord = discord
             let writer = InboxWriter(inboxDir: inbox, eventsLog: eventsLog)
             return try writer.write(AppshotPayload(png: result.png, jpeg: result.jpeg, markdown: text.markdown, meta: meta), now: now)
         }.value

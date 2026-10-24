@@ -147,8 +147,12 @@ enum TargetDelivery {
         if app.pressReturn { KeySender.returnKey() }
     }
 
-    private static func image(_ payload: DeliveryPayload) -> NSImage? {
-        payload.hasImage ? NSImage(contentsOf: payload.screenshot) : nil
+    private static func image(_ payload: DeliveryPayload) -> NSPasteboardItem? {
+        guard payload.hasImage, let data = try? Data(contentsOf: payload.screenshot) else { return nil }
+        let item = NSPasteboardItem()
+        item.setData(data, forType: .png)
+        if let tiff = NSImage(data: data)?.tiffRepresentation { item.setData(tiff, forType: .tiff) }
+        return item
     }
 
     static func run(_ command: CommandTarget, payload: DeliveryPayload) async throws {
