@@ -65,7 +65,8 @@ public struct ChannelResolver: Sendable {
         var lines = data.split(separator: UInt8(ascii: "\n"))
         if start > 0, !lines.isEmpty { lines.removeFirst() }
         let decoder = JSONDecoder()
-        return lines.compactMap { try? decoder.decode(Record.self, from: Data($0)) }
+        // A message cut inside a multi-byte character still names its channel.
+        return lines.compactMap { try? decoder.decode(Record.self, from: Data(String(decoding: $0, as: UTF8.self).utf8)) }
             .filter { !$0.channel.isEmpty }
     }
 }
