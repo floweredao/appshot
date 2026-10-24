@@ -27,13 +27,34 @@
 - **A large, accurate preview.** The window is captured with ScreenCaptureKit at full resolution, without its shadow, and shown at its real aspect ratio.
 - **The whole page, not just the pixels.** In Safari and Chromium browsers, Appshot reads the entire page text, its URL, and your selection. In other apps, it walks the Accessibility tree, which includes text scrolled out of view. When neither works, it falls back to on-device OCR of the screenshot. See [What Appshot reads](#what-appshot-reads).
 - **Send it anywhere.** Your Discord assistant, the clipboard, a folder, the Share menu, a custom command, or straight into ChatGPT, Claude, Codex, Notes, or Slack. See [Send targets](#send-targets).
+- **Crop and mark up before you send.** Press ⌘E or click **Edit** on the preview to crop it or add arrows, boxes, pen strokes, text, and pixelation right in the panel, then press ↩ to send the edited image. If you skip it, nothing changes. See [Editing a capture](#editing-a-capture).
 - **Real destinations.** Pick a Discord server, channel, or active thread by name, search it, and keep your recent choices at the top. Your DM can carry its own name, like "My DM".
-- **Keyboard first.** ↩ sends, ⌘K opens the destination list, ↑↓ moves, ⌘D stars a favorite, ⌘1–⌘9 picks quickly, and esc goes back or cancels.
+- **Keyboard first.** ↩ sends, ⌘K opens the destination list, ⌘E edits the screenshot, ↑↓ moves, ⌘D stars a favorite, ⌘1–⌘9 picks quickly, and esc goes back or cancels.
 - **English and Korean.** The app follows your macOS language.
 - **Nothing leaves your Mac.** Appshot writes files to a local folder. Your assistant picks them up from there. The app holds no tokens and makes no network calls of its own.
 
 <p align="center"><img src="docs/picker-en-light.png" width="720" alt="Destination picker, light mode"></p>
 <p align="center"><img src="docs/picker-en-dark.png" width="720" alt="Destination picker, dark mode"></p>
+
+## Editing a capture
+
+Press **⌘E** (or click **Edit** on the preview) and the preview becomes an editor in the same panel. Everything works from the keyboard:
+
+| Key | Tool or action |
+| --- | --- |
+| C | Crop. Drag a new area, drag the handles, or drag inside to move it. Hold ⇧ to keep the ratio. ↩ applies the crop, esc puts the previous one back. |
+| P · A · R | Pen, arrow (⇧ snaps to 45°), rectangle (⇧ makes a square) |
+| T | Text. Click where it goes, type, then ↩. |
+| B | Pixelate an area. When part of the image is pixelated, Appshot leaves the window text out and sends only the image and your note. |
+| 1–6 | Red, yellow, green, blue, black, white |
+| ⌘Z · ⇧⌘Z | Undo · redo |
+| ↩ | Send the edited image |
+| esc · ⌘E | Leave the editor and keep the edits |
+
+The full-resolution screenshot is edited, not the preview, so the image you send stays sharp.
+
+<p align="center"><img src="docs/edit-en-light.png" width="720" alt="Editing a capture, light mode"></p>
+<p align="center"><img src="docs/edit-en-dark.png" width="720" alt="Editing a capture, dark mode"></p>
 
 ## Send targets
 
@@ -171,6 +192,7 @@ The preselected destination is the channel of the last message your assistant ha
 ## Privacy
 
 - **What is saved:** the screenshot, the window text, your note, and metadata, all in `inboxDir` on your Mac. Also stored locally: the Discord destination list (`~/Library/Caches/Appshot`) and your recent destinations and shortcut (app preferences).
+- **Pixelated captures:** when you pixelate part of the screenshot, the window text, URL, and document path are left out of what Appshot saves and pastes.
 - **What is sent:** nothing, by Appshot itself. Your assistant decides what to post after reading the folder.
 - **What is never read:** password fields.
 - **Repository hygiene:** `scripts/prepush-check.sh` runs gitleaks and scans for emails, home paths, Discord-style IDs, stray images, and personal strings before every push.
