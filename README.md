@@ -31,7 +31,7 @@
 - **Real destinations.** Pick a Discord server, channel, or active thread by name, search it, and keep your recent choices at the top. Your DM can carry its own name, like "My DM".
 - **Keyboard first.** ↩ sends, ⌘K opens the destination list, ⌘E edits the screenshot, ↑↓ moves, ⌘D stars a favorite, ⌘1–⌘9 picks quickly, and esc goes back or cancels.
 - **English and Korean.** The app follows your macOS language.
-- **Nothing leaves your Mac.** Appshot writes files to a local folder. Your assistant picks them up from there. The app holds no tokens and makes no network calls of its own.
+- **Your channel sees what you sent.** Sending to a Discord channel posts the screenshot and your note there from your own account, through the Discord app, and also hands the folder to your assistant so it can reply to that message. The app holds no tokens and makes no network calls of its own.
 
 <p align="center"><img src="docs/picker-en-light.png" width="720" alt="Destination picker, light mode"></p>
 <p align="center"><img src="docs/picker-en-dark.png" width="720" alt="Destination picker, dark mode"></p>
@@ -62,7 +62,7 @@ Pick where an appshot goes in the panel with ⌘K. Appshot remembers the last ta
 
 | Target | What happens |
 | --- | --- |
-| **Assistant (Discord)** | Writes the folder to your assistant's inbox and appends `EVENT APPSHOT` to its events log. The assistant replies in the server, channel, thread, or DM you picked. |
+| **Assistant (Discord)** | Opens the server, channel, thread, or DM you picked in the Discord app and posts the screenshot and your note there as your message. Then it writes the folder to your assistant's inbox, with that message's ID in `meta.json` (`discord.message`), and appends `EVENT APPSHOT` to its events log so the assistant can reply to it. |
 | **Copy to Clipboard** | Puts the screenshot (as an image) and the note plus window text (as text) on the clipboard. |
 | **Save to Folder…** | Asks for a folder (remembering the last one) and copies `shot.png`, `shot.jpg`, `text.md`, and `meta.json` there. |
 | **Paste into an app** | Brings an app you added (ChatGPT, Claude, Codex, Notes, Slack, …) to the front and pastes into its focused text field. Per app, choose *Image, then text*, *Files (PNG + text.md)*, *Text only*, or *Image only*, and optionally press Return. By default Appshot pastes only your note with the screenshot; turn on **Add screen text** to also paste the text it read from the window. |
@@ -193,7 +193,7 @@ The preselected destination is the channel of the last message your assistant ha
 
 - **What is saved:** the screenshot, the window text, your note, and metadata, all in `inboxDir` on your Mac. Also stored locally: the Discord destination list (`~/Library/Caches/Appshot`) and your recent destinations and shortcut (app preferences).
 - **Pixelated captures:** when you pixelate part of the screenshot, the window text, URL, and document path are left out of what Appshot saves and pastes.
-- **What is sent:** nothing, by Appshot itself. Your assistant decides what to post after reading the folder.
+- **What is sent:** for a Discord destination, the screenshot and your note, posted by the Discord app as your message. The window text stays in the folder unless you turn on **Add screen text** for Discord. Appshot itself makes no network calls; it asks your assistant's CLI for the posted message's ID.
 - **What is never read:** password fields.
 - **Repository hygiene:** `scripts/prepush-check.sh` runs gitleaks and scans for emails, home paths, Discord-style IDs, stray images, and personal strings before every push.
 

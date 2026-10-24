@@ -999,6 +999,22 @@
         }
       }
     },
+    "Could not post to Discord: %@": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Could not post to Discord: %@"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "디스코드에 올리지 못했어요: %@"
+          }
+        }
+      }
+    },
     "Could not save: %@": {
       "localizations": {
         "en": {
@@ -2119,6 +2135,22 @@
         }
       }
     },
+    "Posted to %@ in Discord.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Posted to %@ in Discord."
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "디스코드 %@에 올렸어요."
+          }
+        }
+      }
+    },
     "Press Return": {
       "localizations": {
         "en": {
@@ -2707,22 +2739,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "보내는 중…"
-          }
-        }
-      }
-    },
-    "Sent to %@": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Sent to %@"
-          }
-        },
-        "ko": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "%@에 보냄"
           }
         }
       }
