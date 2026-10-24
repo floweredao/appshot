@@ -86,6 +86,41 @@ import Testing
         #expect(ClipboardText.compose(note: "", markdown: "# A") == "# A")
     }
 
+    @Test func discordMessageStaysUnderTheFileLimit() {
+        let long = "# App\n\n" + String(repeating: "x", count: 3_000)
+        #expect(ClipboardText.discordMessage(note: " what is this ", markdown: long) == "what is this")
+        #expect(ClipboardText.discordMessage(note: "", markdown: long) == "")
+        #expect(ClipboardText.discordMessage(note: "hi", markdown: "# A\n") == "hi\n\n# A")
+        let edge = String(repeating: "y", count: ClipboardText.discordLimit - 4)
+        #expect(ClipboardText.discordMessage(note: "hi", markdown: edge).utf16.count == ClipboardText.discordLimit)
+        #expect(ClipboardText.discordMessage(note: "hi", markdown: edge + "y") == "hi")
+    }
+
+    @Test func pastesKeepTheNoteOutOfLongPasteAttachments() {
+        let long = String(repeating: "z", count: 6_000)
+        func pastes(_ note: String, _ markdown: String, _ app: String) -> [String] {
+            ClipboardText.pastes(note: note, markdown: markdown, bundleID: app, includeScreenText: true)
+        }
+        #expect(pastes(" hi ", long, "com.hnc.Discord") == ["hi"])
+        #expect(pastes("", long, "com.hnc.Discord") == [])
+        #expect(pastes(" hi ", long, "com.openai.chat") == ["hi\n\n", long])
+        #expect(pastes("", "# A", "com.apple.Notes") == ["# A"])
+        #expect(pastes("hi", "", "com.apple.Notes") == ["hi\n\n"])
+    }
+
+    @Test func screenTextIsOffByDefault() throws {
+        for app in ["com.hnc.Discord", "com.openai.chat", "com.apple.Notes"] {
+            #expect(ClipboardText.pastes(note: " is this right ", markdown: "# Page", bundleID: app, includeScreenText: false)
+                == ["is this right"])
+            #expect(ClipboardText.pastes(note: "", markdown: "# Page", bundleID: app, includeScreenText: false) == [])
+        }
+        let saved = #"{"bundleID":"com.openai.codex","name":"Codex","paste":"imageAndText","pressReturn":true}"#
+        let decoded = try JSONDecoder().decode(AppTarget.self, from: Data(saved.utf8))
+        #expect(decoded == AppTarget(bundleID: "com.openai.codex", name: "Codex", pressReturn: true))
+        let on = AppTarget(bundleID: "a", name: "A", includeScreenText: true)
+        #expect(try JSONDecoder().decode(AppTarget.self, from: JSONEncoder().encode(on)).includeScreenText)
+    }
+
     @Test func writerWithoutEventsLogAndPrune() throws {
         let root = FileManager.default.temporaryDirectory.appending(path: "appshot-target-\(UUID().uuidString)")
         let writer = InboxWriter(inboxDir: root, eventsLog: nil)

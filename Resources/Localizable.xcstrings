@@ -212,6 +212,22 @@
         }
       }
     },
+    "Add screen text": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Add screen text"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "화면 글자 넣기"
+          }
+        }
+      }
+    },
     "Add to Favorites": {
       "localizations": {
         "en": {
@@ -288,6 +304,22 @@
           "stringUnit": {
             "state": "translated",
             "value": "허용…"
+          }
+        }
+      }
+    },
+    "Also paste the text Appshot read from the window after your note.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Also paste the text Appshot read from the window after your note."
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "적은 글 뒤에 앱샷이 창에서 읽은 글자도 붙여 넣어요."
           }
         }
       }

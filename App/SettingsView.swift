@@ -416,6 +416,12 @@ private struct TargetsSection: View {
                         set: { value in controller.updateTargets { $0.apps[index].pressReturn = value } }
                     )) { Text("Press Return") }
                     .toggleStyle(.checkbox)
+                    Toggle(isOn: Binding(
+                        get: { app.includeScreenText },
+                        set: { value in controller.updateTargets { $0.apps[index].includeScreenText = value } }
+                    )) { Text("Add screen text") }
+                    .toggleStyle(.checkbox)
+                    .help(Text("Also paste the text Appshot read from the window after your note."))
                     Button(role: .destructive) {
                         controller.updateTargets { $0.apps.remove(at: index) }
                     } label: {
