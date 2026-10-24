@@ -6,9 +6,29 @@ import SwiftUI
 struct CaptureResult: Sendable {
     var png: Data?
     var jpeg: Data?
+    var image: CGImage?
     var preview: CGImage?
     var text: ExtractedText
     var errors: [String]
+
+    func applying(_ edit: CaptureEdit) -> CaptureResult {
+        guard !edit.isEmpty, let image, let edited = EditRenderer.render(image, edit: edit) else { return self }
+        var result = self
+        result.image = edited
+        result.png = ImageEncoding.png(edited)
+        result.jpeg = ImageEncoding.jpeg(edited)
+        result.preview = ImageEncoding.downscale(edited, maxLongEdge: 1400)
+        if edit.hidesContent {
+            result.text.markdown = ""
+            result.text.characters = 0
+            result.text.truncated = false
+            result.text.nodes = 0
+            result.text.selectionCharacters = nil
+            result.text.url = nil
+            result.text.document = nil
+        }
+        return result
+    }
 }
 
 @MainActor
@@ -376,6 +396,8 @@ final class AppController {
         readAppChannels()
     }
 
+    static let expandedSectionsKey = "pickerExpandedSections"
+
     static var capturesURL: URL {
         FileManager.default.homeDirectoryForCurrentUser.appending(path: "Library/Application Support/Appshot/Captures", directoryHint: .isDirectory)
     }
@@ -387,11 +409,20 @@ final class AppController {
         let channel = AppshotMeta.Channel(id: destination.id, label: destination.title, source: source)
         if destination.kind.isAssistant {
             guard let config else { throw ConfigError.missing("config.json") }
+            var posted: AppshotMeta.Discord?
+            var postError: Error?
+            do {
+                posted = try await postToDiscord(destination, result: result, target: target, note: note, beforeInteractive: beforeInteractive)
+            } catch {
+                postError = error
+            }
             let folder = try await Self.write(
                 result: result, target: target, note: note, channel: channel,
-                inbox: config.inboxURL, eventsLog: config.eventsLogURL
+                inbox: config.inboxURL, eventsLog: config.eventsLogURL, discord: posted,
+                extraErrors: postError.map { [String(localized: "Could not post to Discord: \(String(describing: $0))")] } ?? []
             )
-            return String(localized: "Sent to \(destination.title)") + " · \(folder.lastPathComponent)"
+            if let postError { throw postError }
+            return String(localized: "Posted to \(destination.title) in Discord.") + " · \(folder.lastPathComponent)"
         }
         let folder = try await Self.write(
             result: result, target: target, note: note, channel: channel, inbox: Self.capturesURL, eventsLog: nil
@@ -438,6 +469,51 @@ final class AppController {
         }
     }
 
+    /// Pastes the screenshot and note into the channel through the Discord app and presses Return, so the post is
+    /// the owner's own message, then asks the assistant's bot CLI for that message's ID.
+    private func postToDiscord(
+        _ destination: Destination, result: CaptureResult, target: TargetWindow, note: String, beforeInteractive: () -> Void
+    ) async throws -> AppshotMeta.Discord {
+        guard let server = AssistantPost.server(
+            forChannel: destination.id, kind: destination.kind, pinned: config?.channel(forID: destination.id), catalog: catalog
+        ), let link = DiscordLink.deepLink(server: server, channel: destination.id)
+        else { throw DeliveryError.channelDidNotOpen(destination.title) }
+        var app = targetSettings.apps.first { DiscordLink.isDiscord(bundleID: $0.bundleID) }
+            ?? AppTarget(bundleID: "com.hnc.Discord", name: "Discord")
+        app.pressReturn = true
+        if app.paste == .files || app.paste == .textOnly { app.paste = .imageAndText }
+        let folder = try await Self.write(
+            result: result, target: target, note: note,
+            channel: .init(id: destination.id, label: destination.title, source: "discord"), inbox: Self.capturesURL, eventsLog: nil
+        )
+        InboxWriter(inboxDir: Self.capturesURL, eventsLog: nil).prune(keeping: 50)
+        let trimmed = note.trimmingCharacters(in: .whitespacesAndNewlines)
+        let payload = DeliveryPayload(
+            folder: folder, note: trimmed, markdown: result.text.markdown,
+            appName: target.appName, title: result.text.title, url: result.text.url, targetName: destination.title
+        )
+        let started = Date().addingTimeInterval(-2)
+        beforeInteractive()
+        let bundleID = app.bundleID
+        let channelID = destination.id
+        try await TargetDelivery.paste(payload, into: app, opening: link) {
+            DiscordReader.currentChannel(bundleID: bundleID) == channelID
+        }
+        var message: String?
+        if let source = config?.catalog {
+            for _ in 0..<8 where message == nil {
+                try? await Task.sleep(for: .seconds(1))
+                if let list = try? await CatalogSync.messages(source, channel: channelID, limit: 10) {
+                    message = AssistantPost.postedMessageID(in: list, note: trimmed, expectImage: payload.hasImage, after: started)
+                }
+            }
+        }
+        return .init(
+            server: server, channel: channelID, message: message,
+            url: AssistantPost.messageURL(server: server, channel: channelID, message: message)
+        )
+    }
+
     func shoot() {
         guard !busy else { return }
         guard let target = settingsTarget() ?? FrontWindow.find() else {
@@ -468,6 +544,8 @@ final class AppController {
         model.favoriteIDs = favoriteIDs
         model.numberShortcuts = numberShortcuts
         model.onFavoritesChanged = { [weak self] ids in self?.favoriteIDs = ids }
+        model.expandedSections = UserDefaults.standard.dictionary(forKey: Self.expandedSectionsKey) as? [String: Bool] ?? [:]
+        model.onSectionsChanged = { UserDefaults.standard.set($0, forKey: Self.expandedSectionsKey) }
         model.destination = preferred ?? index.all.first
         let capture = Task.detached(priority: .userInitiated) { await Self.capture(target) }
         model.onCancel = { [weak self] in
@@ -477,8 +555,10 @@ final class AppController {
         model.onSend = { [weak self] in
             guard let self, let destination = model.destination else { return }
             model.phase = .sending
+            let edit = model.editor.edit
             Task {
-                let result = await capture.value
+                let captured = await capture.value
+                let result = await Task.detached(priority: .userInitiated) { captured.applying(edit) }.value
                 do {
                     let summary = try await self.deliver(
                         destination, result: result, target: target, note: model.note, source: "panel",
@@ -506,10 +586,7 @@ final class AppController {
         panel.show(model, near: target.bounds)
         Task {
             let result = await capture.value
-            if let preview = result.preview {
-                model.preview = NSImage(cgImage: preview, size: .zero)
-                model.previewAspect = CGFloat(preview.width) / CGFloat(max(preview.height, 1))
-            }
+            if let preview = result.preview { model.setCapture(preview) }
             model.windowTitle = result.text.title
             model.textCharacters = result.text.characters
             model.textMethod = result.text.method
@@ -554,16 +631,17 @@ final class AppController {
         let text = await TextExtractor.extract(target: target, screenshot: image)
         errors.append(contentsOf: text.warnings)
         let preview = image.flatMap { ImageEncoding.downscale($0, maxLongEdge: 1400) }
-        return CaptureResult(png: png, jpeg: jpeg, preview: preview, text: text, errors: errors)
+        return CaptureResult(png: png, jpeg: jpeg, image: image, preview: preview, text: text, errors: errors)
     }
 
     nonisolated static func write(
         result: CaptureResult, target: TargetWindow, note: String,
-        channel: AppshotMeta.Channel, inbox: URL, eventsLog: URL?, now: Date = Date()
+        channel: AppshotMeta.Channel, inbox: URL, eventsLog: URL?, discord: AppshotMeta.Discord? = nil,
+        extraErrors: [String] = [], now: Date = Date()
     ) async throws -> URL {
         try await Task.detached(priority: .userInitiated) {
             let text = result.text
-            let meta = AppshotMeta(
+            var meta = AppshotMeta(
                 createdAt: ISO8601DateFormatter().string(from: now),
                 app: .init(name: target.appName, bundleID: target.bundleID, pid: target.pid),
                 window: .init(
@@ -577,8 +655,9 @@ final class AppController {
                     characters: text.characters, truncated: text.truncated, nodes: text.nodes,
                     method: text.method?.rawValue, attempts: text.attempts, selectionCharacters: text.selectionCharacters
                 ),
-                errors: result.errors
+                errors: result.errors + extraErrors
             )
+            meta.discord = discord
             let writer = InboxWriter(inboxDir: inbox, eventsLog: eventsLog)
             return try writer.write(AppshotPayload(png: result.png, jpeg: result.jpeg, markdown: text.markdown, meta: meta), now: now)
         }.value
@@ -679,6 +758,7 @@ struct HeadlessRequest: Sendable {
         var dark: Bool
         var scene: String
         var demoImage: String?
+        var height: Double?
     }
 
     var note = ""
@@ -709,6 +789,7 @@ struct HeadlessRequest: Sendable {
             case "--dark": render.dark = true
             case "--scene": render.scene = iterator.next() ?? "panel"
             case "--demo-image": render.demoImage = iterator.next()
+            case "--height": render.height = Double(iterator.next() ?? "")
             case "--check-update": request.update = request.update ?? .check
             case "--install-update": request.update = .install(relaunch: !arguments.contains("--no-relaunch"))
             case "--verify-update": verifyZip = iterator.next()

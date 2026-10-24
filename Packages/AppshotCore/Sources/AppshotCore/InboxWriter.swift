@@ -34,6 +34,20 @@ public struct AppshotMeta: Codable, Sendable, Equatable {
         }
     }
 
+    /// The Discord message Appshot posted for this appshot, so the assistant can reply to it.
+    public struct Discord: Codable, Sendable, Equatable {
+        public var server: String
+        public var channel: String
+        public var message: String?
+        public var url: String
+        public init(server: String, channel: String, message: String?, url: String) {
+            self.server = server
+            self.channel = channel
+            self.message = message
+            self.url = url
+        }
+    }
+
     public struct TextInfo: Codable, Sendable, Equatable {
         public var characters: Int
         public var truncated: Bool
@@ -62,6 +76,7 @@ public struct AppshotMeta: Codable, Sendable, Equatable {
     public var document: String?
     public var note: String
     public var channel: Channel
+    public var discord: Discord?
     public var files: [String: String] = [:]
     public var text: TextInfo
     public var errors: [String]
@@ -154,7 +169,15 @@ public struct InboxWriter: Sendable {
             try writeFile(try encoder.encode(meta), named: "meta.json", in: staging)
 
             let final = try publish(staging, base: base)
-            if let eventsLog { try appendEvent(Self.eventLine(for: final), to: eventsLog) }
+            if let eventsLog {
+                do {
+                    try appendEvent(Self.eventLine(for: final), to: eventsLog)
+                } catch {
+                    // Without its event the folder would sit in the inbox unannounced while the caller reports a failure.
+                    try? fm.removeItem(at: final)
+                    throw error
+                }
+            }
             return final
         } catch {
             try? fm.removeItem(at: staging)
@@ -181,9 +204,18 @@ public struct InboxWriter: Sendable {
 
     public func prune(keeping limit: Int) {
         let fm = FileManager.default
-        guard let names = try? fm.contentsOfDirectory(atPath: inboxDir.path) else { return }
-        let folders = names.filter { !$0.hasPrefix(".") }.sorted()
-        for name in folders.dropLast(limit) { try? fm.removeItem(at: inboxDir.appending(path: name)) }
+        guard let urls = try? fm.contentsOfDirectory(at: inboxDir, includingPropertiesForKeys: [.creationDateKey]) else { return }
+        // Oldest first by creation date: folder names are local time, which runs backwards when the clock or time zone moves back.
+        var folders: [(url: URL, created: Date)] = []
+        for url in urls where !url.lastPathComponent.hasPrefix(".") {
+            let created: Date = (try? url.resourceValues(forKeys: [.creationDateKey]).creationDate) ?? Date.distantPast
+            folders.append((url: url, created: created))
+        }
+        folders.sort { left, right in
+            if left.created != right.created { return left.created < right.created }
+            return left.url.lastPathComponent < right.url.lastPathComponent
+        }
+        for folder in folders.dropLast(limit) { try? fm.removeItem(at: folder.url) }
     }
 
     private func rename(_ from: URL, to: URL) throws {
@@ -195,8 +227,20 @@ public struct InboxWriter: Sendable {
         let fd = open(eventsLog.path, O_WRONLY | O_APPEND | O_CREAT, 0o644)
         guard fd >= 0 else { throw WriterError.io("open events log", errno) }
         defer { close(fd) }
-        let bytes = Array(line.utf8)
+        var bytes = Array(line.utf8)
+        if endsMidLine(fd, path: eventsLog.path) { bytes.insert(UInt8(ascii: "\n"), at: 0) }
         let written = bytes.withUnsafeBytes { Foundation.write(fd, $0.baseAddress, $0.count) }
         if written != bytes.count { throw WriterError.io("append event", errno) }
+    }
+
+    /// True when another writer stopped before its newline, so this event would join that line.
+    private func endsMidLine(_ fd: Int32, path: String) -> Bool {
+        let end = lseek(fd, 0, SEEK_END)
+        guard end > 0 else { return false }
+        let reader = open(path, O_RDONLY)
+        guard reader >= 0 else { return false }
+        defer { close(reader) }
+        var last: UInt8 = 0
+        return pread(reader, &last, 1, end - 1) == 1 && last != UInt8(ascii: "\n")
     }
 }
