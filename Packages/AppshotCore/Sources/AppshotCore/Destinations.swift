@@ -277,7 +277,7 @@ public struct DestinationIndex: Sendable {
     public func search(
         _ query: String, recent: [String] = [], favorites: [String] = [], expanded: [String: Bool]? = nil
     ) -> [Destination] {
-        let tokens = query.split(whereSeparator: \.isWhitespace).map { Self.fold(String($0)) }.filter { !$0.isEmpty }
+        let tokens = query.split(whereSeparator: \.isWhitespace).map(Self.searchToken).filter { !$0.isEmpty }
         guard !tokens.isEmpty else {
             let all = sections(recent: recent, favorites: favorites)
             guard let expanded else { return all.flatMap(\.items) }
@@ -299,6 +299,11 @@ public struct DestinationIndex: Sendable {
         return scored.enumerated()
             .sorted { lhs, rhs in lhs.element.1 != rhs.element.1 ? lhs.element.1 > rhs.element.1 : lhs.offset < rhs.offset }
             .map(\.element.0)
+    }
+
+    /// Channel titles show a `#` that names do not carry, so `#gen` still finds "general".
+    static func searchToken(_ word: Substring) -> String {
+        fold(String(word.drop { $0 == "#" }))
     }
 
     static func fold(_ text: String) -> String {

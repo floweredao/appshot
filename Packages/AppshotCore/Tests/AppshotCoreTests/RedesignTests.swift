@@ -57,6 +57,13 @@ import Testing
         #expect(index.search("", recent: ["c3"]).first?.id == "c3")
     }
 
+    @Test func searchIgnoresTheHashChannelTitlesShow() throws {
+        let index = DestinationIndex(pinned: [], catalog: try catalog())
+        #expect(index.search("#coding").map(\.id) == ["c2", "t1"])
+        #expect(index.search("home #gen").map(\.id) == ["c1"])
+        #expect(index.search("#").map(\.id) == index.search("").map(\.id))
+    }
+
     @Test func contextIsNilWhenThereIsNothingToShow() {
         #expect(Destination(id: "t9", name: "notes", kind: .thread).context == nil)
         #expect(Destination(id: "c9", name: "general", kind: .channel, server: "").context == nil)
@@ -180,5 +187,17 @@ import Testing
         #expect(page?.text == "hi")
         #expect(TextScripts.failureReason("execution error: Not authorized to send Apple events to Safari. (-1743)") == "automation-denied")
         #expect(TextScripts.failureReason("You must enable 'Allow JavaScript from Apple Events' in the Developer section") == "javascript-from-apple-events-off")
+    }
+
+    @Test func decodePageTreatsEmptyStringsAsMissing() {
+        let page = TextScripts.decodePage(#"{"url":"","title":"","text":"plain file","selection":""}"#)
+        #expect(page?.text == "plain file")
+        #expect(page?.url == nil)
+        #expect(page?.title == nil)
+        #expect(page?.selection == nil)
+        let full = TextScripts.decodePage(#"{"url":"https://a","title":"T","text":"x","selection":"s"}"#)
+        #expect(full?.url == "https://a")
+        #expect(full?.title == "T")
+        #expect(full?.selection == "s")
     }
 }
