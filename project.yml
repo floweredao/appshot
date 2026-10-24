@@ -28,8 +28,8 @@ targets:
       path: .work/Info.plist
       properties:
         CFBundleDisplayName: Appshot
-        CFBundleShortVersionString: "0.4.1"
-        CFBundleVersion: "7"
+        CFBundleShortVersionString: "0.6.0"
+        CFBundleVersion: "10"
         LSUIElement: true
         LSApplicationCategoryType: public.app-category.productivity
         NSHumanReadableCopyright: MIT License

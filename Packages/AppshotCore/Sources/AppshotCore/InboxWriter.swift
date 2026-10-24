@@ -34,6 +34,20 @@ public struct AppshotMeta: Codable, Sendable, Equatable {
         }
     }
 
+    /// The Discord message Appshot posted for this appshot, so the assistant can reply to it.
+    public struct Discord: Codable, Sendable, Equatable {
+        public var server: String
+        public var channel: String
+        public var message: String?
+        public var url: String
+        public init(server: String, channel: String, message: String?, url: String) {
+            self.server = server
+            self.channel = channel
+            self.message = message
+            self.url = url
+        }
+    }
+
     public struct TextInfo: Codable, Sendable, Equatable {
         public var characters: Int
         public var truncated: Bool
@@ -62,6 +76,7 @@ public struct AppshotMeta: Codable, Sendable, Equatable {
     public var document: String?
     public var note: String
     public var channel: Channel
+    public var discord: Discord?
     public var files: [String: String] = [:]
     public var text: TextInfo
     public var errors: [String]

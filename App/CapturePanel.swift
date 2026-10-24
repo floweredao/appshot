@@ -16,6 +16,8 @@ final class PanelModel {
     enum Field: Hashable {
         case note
         case search
+        case canvas
+        case markupText
     }
 
     var appName: String
@@ -34,6 +36,8 @@ final class PanelModel {
     var favoriteIDs: [String] = []
     var numberShortcuts = true
     var onFavoritesChanged: ([String]) -> Void = { _ in }
+    var expandedSections: [String: Bool] = [:]
+    var onSectionsChanged: ([String: Bool]) -> Void = { _ in }
     var destination: Destination?
     var pickerOpen = false
     var query = ""
@@ -42,6 +46,9 @@ final class PanelModel {
     var renderMode = false
     var previewCap = PreviewView.maxHeight
     var onContentSize: (CGSize) -> Void = { _ in }
+    let editor = EditorState()
+    private(set) var editing = false
+    var onEditingChanged: (Bool) -> Void = { _ in }
 
     var onSend: () -> Void = {}
     var onCancel: () -> Void = {}
@@ -53,14 +60,61 @@ final class PanelModel {
 
     var canSend: Bool { phase != .sending && destination != nil }
 
-    var results: [Destination] { index.search(query, recent: recentIDs, favorites: favoriteIDs) }
+    var results: [Destination] { index.search(query, recent: recentIDs, favorites: favoriteIDs, expanded: expandedSections) }
+
+    var searching: Bool { !query.trimmingCharacters(in: .whitespaces).isEmpty }
+
+    func isCollapsed(_ section: DestinationIndex.Section) -> Bool {
+        !searching && section.isCollapsed(expandedSections)
+    }
+
+    func toggleSection(_ section: DestinationIndex.Section) {
+        guard section.collapsible else { return }
+        let current = results.indices.contains(highlighted) ? results[highlighted].id : nil
+        expandedSections[section.id] = section.isCollapsed(expandedSections)
+        onSectionsChanged(expandedSections)
+        highlighted = max(0, results.firstIndex { $0.id == current } ?? 0)
+    }
 
     var sections: [DestinationIndex.Section] {
         if query.trimmingCharacters(in: .whitespaces).isEmpty { return index.sections(recent: recentIDs, favorites: favoriteIDs) }
         return [DestinationIndex.Section(id: "results", title: nil, items: results)]
     }
 
+    var canEdit: Bool { editor.base != nil && phase != .sending }
+
+    func setCapture(_ image: CGImage) {
+        editor.load(image)
+        preview = NSImage(cgImage: image, size: .zero)
+        previewAspect = CGFloat(image.width) / CGFloat(max(image.height, 1))
+    }
+
+    func toggleEditing() {
+        editing ? endEditing() : beginEditing()
+    }
+
+    func beginEditing() {
+        guard canEdit, !editing else { return }
+        if pickerOpen { closePicker() }
+        editing = true
+        previewCap = PreviewView.editMaxHeight
+        focus = .canvas
+        onEditingChanged(true)
+    }
+
+    func endEditing() {
+        guard editing else { return }
+        editor.commitText()
+        editor.draft = nil
+        editor.finishCrop()
+        editing = false
+        previewCap = PreviewView.maxHeight
+        focus = .note
+        onEditingChanged(false)
+    }
+
     func openPicker() {
+        if editing { endEditing() }
         query = ""
         highlighted = max(0, results.firstIndex { $0.id == destination?.id } ?? 0)
         pickerOpen = true
@@ -75,15 +129,17 @@ final class PanelModel {
 
     var previewSize: CGSize {
         let maxWidth = PanelView.width - PanelView.inset * 2
-        let aspect = max(previewAspect, 0.2)
+        let aspect = max(displayAspect, 0.2)
         let height = min(previewCap, maxWidth / aspect)
         return CGSize(width: min(maxWidth, height * aspect).rounded(), height: height.rounded())
     }
 
+    var displayAspect: CGFloat { editor.displayAspect(original: previewAspect) }
+
     var previewHeight: CGFloat { previewSize.height }
 
     func shrinkPreview(by overflow: CGFloat) -> Bool {
-        let natural = (PanelView.width - PanelView.inset * 2) / max(previewAspect, 0.2)
+        let natural = (PanelView.width - PanelView.inset * 2) / max(displayAspect, 0.2)
         let room = previewHeight - min(PreviewView.minHeight, natural)
         guard overflow > 0, room > 0 else { return false }
         previewCap = previewHeight - min(overflow, room)
@@ -131,13 +187,46 @@ final class PanelModel {
     func submit() {
         if pickerOpen {
             choose()
+        } else if editing, editor.textDraft != nil {
+            editor.commitText()
+            focus = .canvas
+        } else if editing, editor.tool == .crop {
+            editor.finishCrop()
         } else if canSend {
+            editor.commitText()
             onSend()
         }
     }
 
     func escape() {
-        if pickerOpen { closePicker() } else { onCancel() }
+        if pickerOpen {
+            closePicker()
+        } else if editing, editor.textDraft != nil {
+            editor.textDraft = nil
+            focus = .canvas
+        } else if editing, editor.tool == .crop {
+            editor.cancelCrop()
+        } else if editing {
+            endEditing()
+        } else {
+            onCancel()
+        }
+    }
+
+    var editorHasKeyFocus: Bool { editing && focus != .note && focus != .markupText }
+
+    func editorKey(_ characters: String) -> Bool {
+        guard editorHasKeyFocus else { return false }
+        if let tool = EditorState.Tool.forKey(characters) {
+            editor.select(tool)
+            if tool == .text { focus = .canvas }
+            return true
+        }
+        if let number = Int(characters), MarkupColor.allCases.indices.contains(number - 1) {
+            editor.color = MarkupColor.allCases[number - 1]
+            return true
+        }
+        return false
     }
 }
 
@@ -232,6 +321,16 @@ final class CapturePanel: NSPanel {
             MainActor.assumeIsolated { model.togglePicker() }
             return true
         }
+        if event.type == .keyDown, Int(event.keyCode) == kVK_ANSI_E, flags == .command, let model,
+           MainActor.assumeIsolated({ model.canEdit }) {
+            MainActor.assumeIsolated { model.toggleEditing() }
+            return true
+        }
+        if event.type == .keyDown, Int(event.keyCode) == kVK_ANSI_Z, flags == .command || flags == [.command, .shift], let model,
+           MainActor.assumeIsolated({ model.editorHasKeyFocus }) {
+            MainActor.assumeIsolated { flags.contains(.shift) ? model.editor.redo() : model.editor.undo() }
+            return true
+        }
         if event.type == .keyDown, Int(event.keyCode) == kVK_ANSI_D, flags == .command, let model,
            MainActor.assumeIsolated({ model.pickerOpen }) {
             MainActor.assumeIsolated { model.toggleHighlightedFavorite() }
@@ -261,6 +360,7 @@ final class CapturePanel: NSPanel {
             case kVK_UpArrow where model.pickerOpen:
                 model.move(-1)
             default:
+                if flags.subtracting(.shift).isEmpty, model.editorKey(event.charactersIgnoringModifiers ?? "") { return }
                 super.sendEvent(event)
             }
         }
@@ -291,6 +391,7 @@ final class PanelController {
         model.onContentSize = { [weak panel] size in
             DispatchQueue.main.async { panel?.settle(contentSize: size) }
         }
+        model.onEditingChanged = { [weak panel] editing in panel?.isMovableByWindowBackground = !editing }
         panel.makeKeyAndOrderFront(nil)
         self.panel = panel
         self.host = host
@@ -299,6 +400,7 @@ final class PanelController {
     func close() {
         panel?.orderOut(nil)
         panel?.model?.onContentSize = { _ in }
+        panel?.model?.onEditingChanged = { _ in }
         panel = nil
         host = nil
     }
@@ -330,11 +432,16 @@ struct PanelView: View {
 
     @Bindable var model: PanelModel
     @FocusState private var focused: PanelModel.Field?
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
             header
-            PreviewView(model: model)
+            if model.editing {
+                EditorToolbar(model: model)
+                    .transition(reduceMotion ? .identity : .opacity.combined(with: .offset(y: -6)))
+            }
+            PreviewView(model: model, focused: $focused)
             noteField
             if model.pickerOpen {
                 DestinationPicker(model: model, focused: $focused)
@@ -355,6 +462,7 @@ struct PanelView: View {
             RoundedRectangle(cornerRadius: Self.cornerRadius, style: .continuous)
                 .strokeBorder(Color.primary.opacity(0.12), lineWidth: 1)
         )
+        .animation(reduceMotion ? nil : .easeOut(duration: 0.18), value: model.editing)
         .onAppear { DispatchQueue.main.async { focused = model.focus } }
         .onChange(of: model.focus) { _, value in focused = value }
         .onChange(of: focused) { _, value in if let value { model.focus = value } }
@@ -373,18 +481,20 @@ struct PanelView: View {
             }
             .frame(width: 34, height: 34)
             .accessibilityHidden(true)
-            VStack(alignment: .leading, spacing: 2) {
-                Text(model.appName)
-                    .font(.system(size: 15, weight: .semibold))
-                    .lineLimit(1)
-                Text(model.windowTitle ?? " ")
-                    .font(.system(size: 12.5))
-                    .foregroundStyle(.secondary)
-                    .lineLimit(1)
-                    .truncationMode(.middle)
+            HStack(alignment: .firstTextBaseline, spacing: 12) {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(model.appName)
+                        .font(.system(size: 15, weight: .semibold))
+                        .lineLimit(1)
+                    Text(model.windowTitle ?? " ")
+                        .font(.system(size: 12.5))
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
+                        .truncationMode(.middle)
+                }
+                Spacer(minLength: 12)
+                StatusChip(model: model)
             }
-            Spacer(minLength: 12)
-            StatusChip(model: model)
         }
     }
 
@@ -418,7 +528,7 @@ struct PanelView: View {
     }
 
     private var destinationRow: some View {
-        HStack(spacing: 10) {
+        HStack(alignment: .firstTextBaseline, spacing: 10) {
             Text("Send to")
                 .font(.system(size: 13))
                 .foregroundStyle(.secondary)
@@ -464,15 +574,44 @@ struct PanelView: View {
         }
     }
 
-    private var footer: some View {
-        HStack(spacing: 14) {
-            KeyHint(keys: "↩", label: model.pickerOpen ? Text("Choose") : Text("Send"))
-            KeyHint(keys: "⌘K", label: Text("Destination"))
-            if model.pickerOpen { KeyHint(keys: "↑↓", label: Text("Move")) }
-            if model.pickerOpen { KeyHint(keys: "⌘D", label: Text("Favorite")) }
-            if model.numberShortcuts { KeyHint(keys: "⌘1–9", label: Text("Quick pick")) }
-            Spacer(minLength: 0)
-            KeyHint(keys: "esc", label: model.pickerOpen ? Text("Back") : Text("Cancel"))
+    @ViewBuilder private var footer: some View {
+        if model.editing {
+            editingFooter
+        } else {
+            HStack(spacing: 14) {
+                KeyHint(keys: "↩", label: model.pickerOpen ? Text("Choose") : Text("Send"))
+                KeyHint(keys: "⌘K", label: Text("Destination"))
+                if model.pickerOpen { KeyHint(keys: "↑↓", label: Text("Move")) }
+                if model.pickerOpen { KeyHint(keys: "⌘D", label: Text("Favorite")) }
+                if !model.pickerOpen, model.canEdit { KeyHint(keys: "⌘E", label: Text("Edit")) }
+                if model.numberShortcuts { KeyHint(keys: "⌘1–9", label: Text("Quick pick")) }
+                Spacer(minLength: 0)
+                KeyHint(keys: "esc", label: model.pickerOpen ? Text("Back") : Text("Cancel"))
+            }
+        }
+    }
+
+    private var editingFooter: some View {
+        let editor = model.editor
+        return HStack(spacing: 14) {
+            if editor.textDraft != nil {
+                KeyHint(keys: "↩", label: Text("Add text"))
+                Spacer(minLength: 0)
+                KeyHint(keys: "esc", label: Text("Cancel"))
+            } else if editor.tool == .crop {
+                KeyHint(keys: "↩", label: Text("Apply crop"))
+                KeyHint(keys: "⇧", label: Text("Keep ratio"))
+                KeyHint(keys: "⌘Z", label: Text("Undo"))
+                Spacer(minLength: 0)
+                KeyHint(keys: "esc", label: Text("Cancel crop"))
+            } else {
+                KeyHint(keys: "↩", label: Text("Send"))
+                KeyHint(keys: EditorState.Tool.allCases.map(\.key).joined(), label: Text("Tools"))
+                KeyHint(keys: "1–6", label: Text("Color"))
+                KeyHint(keys: "⌘Z", label: Text("Undo"))
+                Spacer(minLength: 0)
+                KeyHint(keys: "esc", label: Text("Done"))
+            }
         }
     }
 }
@@ -493,7 +632,12 @@ private struct StatusChip: View {
                 Text("Sending…").font(.system(size: 12)).foregroundStyle(.secondary)
             }
         default:
-            if let characters = model.textCharacters {
+            if model.editor.edit.hidesContent, model.textCharacters != nil {
+                Label("Screen text left out", systemImage: "eye.slash")
+                    .font(.system(size: 12))
+                    .foregroundStyle(.secondary)
+                    .help(Text("Part of the image is hidden, so the window text is not sent."))
+            } else if let characters = model.textCharacters {
                 HStack(spacing: 5) {
                     Image(systemName: methodSymbol).font(.system(size: 11, weight: .semibold))
                     Text(methodLabel)
@@ -503,9 +647,6 @@ private struct StatusChip: View {
                 .font(.system(size: 12))
                 .monospacedDigit()
                 .foregroundStyle(.secondary)
-                .padding(.horizontal, 9)
-                .padding(.vertical, 4)
-                .background(Color.primary.opacity(0.06), in: Capsule())
             }
         }
     }
@@ -533,12 +674,17 @@ private struct StatusChip: View {
 
 struct PreviewView: View {
     static let maxHeight: CGFloat = 330
+    static let editMaxHeight: CGFloat = 440
     static let minHeight: CGFloat = 150
 
     let model: PanelModel
+    var focused: FocusState<PanelModel.Field?>.Binding
+    @State private var hovering = false
 
     var body: some View {
-        if let preview = model.preview {
+        if model.editing {
+            EditorCanvas(model: model, focused: focused, size: model.previewSize)
+        } else if let preview = model.editor.output ?? model.preview {
             let size = model.previewSize
             Image(nsImage: preview)
                 .resizable()
@@ -546,11 +692,38 @@ struct PreviewView: View {
                 .scaledToFill()
                 .frame(width: size.width, height: size.height)
                 .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+                .overlay(alignment: .bottomTrailing) {
+                    if model.canEdit { editButton }
+                }
+                .contentShape(Rectangle())
+                .onTapGesture { model.beginEditing() }
+                .onHover { hovering = $0 }
                 .frame(maxWidth: .infinity)
+                .accessibilityElement(children: .contain)
                 .accessibilityLabel(Text("Window screenshot"))
         } else {
             placeholder
         }
+    }
+
+    private var editButton: some View {
+        Button(action: model.beginEditing) {
+            HStack(spacing: 6) {
+                Image(systemName: "pencil.tip.crop.circle").font(.system(size: 13, weight: .semibold))
+                Text("Edit").font(.system(size: 12.5, weight: .semibold))
+                Text(verbatim: "⌘E").font(.system(size: 11, weight: .medium, design: .rounded)).opacity(0.75)
+            }
+            .foregroundStyle(.white)
+            .padding(.horizontal, 10)
+            .padding(.vertical, 6)
+            .background(Color.black.opacity(hovering ? 0.72 : 0.55), in: Capsule())
+            .overlay(Capsule().strokeBorder(Color.white.opacity(0.18), lineWidth: 0.5))
+            .contentShape(Capsule())
+        }
+        .buttonStyle(.plain)
+        .padding(10)
+        .accessibilityLabel(Text("Edit"))
+        .accessibilityHint(Text("Crop or mark up the screenshot. Command-E"))
     }
 
     private var placeholder: some View {
@@ -598,17 +771,21 @@ private struct DestinationPicker: View {
                     LazyVStack(alignment: .leading, spacing: 1) {
                         let flat = model.results
                         ForEach(model.sections) { section in
-                            SectionTitle(section: section)
-                            ForEach(section.items) { item in
+                            let collapsed = model.isCollapsed(section)
+                            SectionTitle(section: section, collapsed: collapsed) { model.toggleSection(section) }
+                            ForEach(collapsed ? [] : section.items) { item in
                                 let position = flat.firstIndex(of: item) ?? -1
                                 DestinationRow(
                                     item: item,
+                                    context: section.id.hasPrefix("server:") ? item.contextInServer
+                                        : item.kind == .channel ? nil : item.context ?? DestinationSubtitle.text(item),
                                     highlighted: position == model.highlighted,
                                     selected: item.id == model.destination?.id,
                                     number: model.numberShortcuts && position >= 0 && position < 9 ? position + 1 : nil,
                                     favorite: model.favoriteIDs.contains(item.id),
                                     toggleFavorite: { model.toggleFavorite(item) }
                                 )
+                                .padding(.leading, section.id.hasPrefix("server:") && item.kind == .thread ? 18 : 0)
                                 .id(item.id)
                                 .onTapGesture { model.choose(item) }
                             }
@@ -637,8 +814,46 @@ private struct DestinationPicker: View {
 
 private struct SectionTitle: View {
     let section: DestinationIndex.Section
+    var collapsed = false
+    var toggle: () -> Void = {}
 
     var body: some View {
+        if section.collapsible {
+            Button(action: toggle) {
+                HStack(spacing: 5) {
+                    Image(systemName: "chevron.right")
+                        .font(.system(size: 9, weight: .bold))
+                        .rotationEffect(.degrees(collapsed ? 0 : 90))
+                        .frame(width: 10)
+                    title
+                    if collapsed {
+                        Text(verbatim: "\(section.items.count)")
+                            .monospacedDigit()
+                            .foregroundStyle(.tertiary)
+                    }
+                    Spacer(minLength: 0)
+                }
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .font(.system(size: 11.5, weight: .semibold))
+            .foregroundStyle(.secondary)
+            .padding(.horizontal, 8)
+            .padding(.top, 8)
+            .padding(.bottom, 2)
+            .accessibilityValue(collapsed ? Text("Collapsed") : Text("Expanded"))
+            .accessibilityHint(collapsed ? Text("Show this server's channels") : Text("Hide this server's channels"))
+        } else {
+            title
+                .font(.system(size: 11.5, weight: .semibold))
+                .foregroundStyle(.secondary)
+                .padding(.horizontal, 8)
+                .padding(.top, 8)
+                .padding(.bottom, 2)
+        }
+    }
+
+    private var title: some View {
         Group {
             if section.id == "favorites" {
                 Label("Favorites", systemImage: "star.fill")
@@ -650,16 +865,12 @@ private struct SectionTitle: View {
                 Text(verbatim: title)
             }
         }
-        .font(.system(size: 11.5, weight: .semibold))
-        .foregroundStyle(.secondary)
-        .padding(.horizontal, 8)
-        .padding(.top, 8)
-        .padding(.bottom, 2)
     }
 }
 
 private struct DestinationRow: View {
     let item: Destination
+    var context: String?
     let highlighted: Bool
     let selected: Bool
     var number: Int?
@@ -670,7 +881,7 @@ private struct DestinationRow: View {
         HStack(spacing: 9) {
             DestinationIcon(kind: item.kind, id: item.id)
             Text(item.listTitle).font(.system(size: 13.5)).lineLimit(1)
-            if let context = item.context ?? DestinationSubtitle.text(item), item.kind != .channel {
+            if let context {
                 Text(context).font(.system(size: 12)).foregroundStyle(highlighted ? .white.opacity(0.85) : .secondary).lineLimit(1)
             }
             Spacer(minLength: 4)
@@ -781,7 +992,7 @@ private struct KeyHint: View {
     let label: Text
 
     var body: some View {
-        HStack(spacing: 5) {
+        HStack(alignment: .firstTextBaseline, spacing: 5) {
             Text(verbatim: keys)
                 .font(.system(size: 11, weight: .medium, design: .rounded))
                 .padding(.horizontal, 5)
@@ -813,7 +1024,9 @@ enum DestinationSubtitle {
         case .clipboard: String(localized: "Image and text")
         case .folder: String(localized: "PNG, JPEG, text, metadata")
         case .share: String(localized: "Mail, Messages, AirDrop…")
-        case .app: String(localized: "Open and paste")
+        case .app:
+            DiscordLink.isDiscord(bundleID: String(destination.id.dropFirst(TargetID.app("").count)))
+                ? String(localized: "Paste into the open channel") : String(localized: "Open and paste")
         case .command: String(localized: "Custom command")
         case .direct, .channel, .thread, .appChannel: nil
         }
