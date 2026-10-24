@@ -31,7 +31,7 @@ public struct CatalogSource: Codable, Sendable, Equatable {
     }
 
     public var cacheURL: URL {
-        if let path { return URL(filePath: AppshotConfig.expand(path)) }
+        if let path, !path.isEmpty { return URL(filePath: AppshotConfig.expand(path)) }
         return FileManager.default.homeDirectoryForCurrentUser.appending(path: "Library/Caches/Appshot/discord-catalog.json")
     }
 }
@@ -95,10 +95,13 @@ public struct AppshotConfig: Codable, Sendable, Equatable {
     }
 
     public var stateURL: URL { URL(filePath: Self.expand(stateDir), directoryHint: .isDirectory) }
-    public var ownerInboxURL: URL { resolve(ownerInbox ?? "owner-inbox.jsonl") }
-    public var handledIdsURL: URL { resolve(handledIds ?? "handled-ids.txt") }
+    public var ownerInboxURL: URL { resolve(ownerInbox, default: "owner-inbox.jsonl") }
+    public var handledIdsURL: URL { resolve(handledIds, default: "handled-ids.txt") }
 
-    private func resolve(_ path: String) -> URL {
+    /// An empty override means the default file, not the state folder itself.
+    private func resolve(_ override: String?, default name: String) -> URL {
+        var path = name
+        if let override, !override.isEmpty { path = override }
         let expanded = Self.expand(path)
         if expanded.hasPrefix("/") { return URL(filePath: expanded) }
         return stateURL.appending(path: expanded)

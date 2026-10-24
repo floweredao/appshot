@@ -76,9 +76,15 @@ public enum TextScripts {
         }
     }
 
+    /// The page script always sends strings, so an empty title, URL, or selection means there is none
+    /// and the window's own title or selection can stand in.
     public static func decodePage(_ output: String) -> ScriptPage? {
-        guard let data = output.data(using: .utf8) else { return nil }
-        return try? JSONDecoder().decode(ScriptPage.self, from: data)
+        guard let data = output.data(using: .utf8),
+              var page = try? JSONDecoder().decode(ScriptPage.self, from: data) else { return nil }
+        if page.url?.isEmpty == true { page.url = nil }
+        if page.title?.isEmpty == true { page.title = nil }
+        if page.selection?.isEmpty == true { page.selection = nil }
+        return page
     }
 
     public static func failureReason(_ message: String) -> String {
