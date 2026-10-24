@@ -34,10 +34,13 @@ public struct DiscordCatalog: Codable, Sendable, Equatable {
 
     public var updatedAt: Date
     public var servers: [Server]
+    /// The assistant bot's own name, used to name its DM instead of a label from the config file.
+    public var botName: String?
 
-    public init(updatedAt: Date, servers: [Server]) {
+    public init(updatedAt: Date, servers: [Server], botName: String? = nil) {
         self.updatedAt = updatedAt
         self.servers = servers
+        self.botName = botName
     }
 
     public static func load(from url: URL) -> DiscordCatalog? {
@@ -129,6 +132,20 @@ public struct Destination: Sendable, Hashable, Identifiable {
         kind == .direct || (kind == .appChannel && id.contains("/channels/\(DiscordLink.directMessages)/"))
     }
 
+    /// The context to show when the row already sits under its server's heading.
+    public var contextInServer: String? {
+        kind == .thread ? parent.map { "#\($0)" } : nil
+    }
+
+    /// The Discord channel ID behind this destination, for both assistant and Discord-app rows.
+    public var discordChannelID: String? {
+        switch kind {
+        case .direct, .channel, .thread: id
+        case .appChannel: id.range(of: "/channels/").flatMap { DiscordLink.parse(String(id[$0.lowerBound...]))?.channel }
+        default: nil
+        }
+    }
+
     public var context: String? {
         switch kind {
         case .channel: server
@@ -161,10 +178,22 @@ public struct DestinationIndex: Sendable {
             self.title = title
             self.items = items
         }
+
+        /// Server groups can be folded; favorites, recents, and apps always stay open.
+        public var collapsible: Bool { id.hasPrefix("server:") && title != nil }
+
+        public static let foldThreshold = 6
+
+        /// A server group the user has not opened or closed starts folded when it is long.
+        public func isCollapsed(_ expanded: [String: Bool]) -> Bool {
+            guard collapsible else { return false }
+            return !(expanded[id] ?? (items.count <= Self.foldThreshold))
+        }
     }
 
     public private(set) var all: [Destination] = []
     private var byID: [String: Destination] = [:]
+    private var aliases: [String: String] = [:]
 
     public init(pinned: [ChannelOption], catalog: DiscordCatalog?, targets: [Destination] = []) {
         var seen = Set<String>()
@@ -190,7 +219,8 @@ public struct DestinationIndex: Sendable {
                 add(found)
             } else {
                 let kind: Destination.Kind = option.kind == "channel" ? .channel : option.kind == "thread" ? .thread : .direct
-                let name = kind == .channel && option.label.hasPrefix("#") ? String(option.label.dropFirst()) : option.label
+                var name = kind == .channel && option.label.hasPrefix("#") ? String(option.label.dropFirst()) : option.label
+                if kind == .direct, let bot = catalog?.botName, !bot.isEmpty { name = "DM · \(bot)" }
                 add(Destination(id: option.id, name: name, kind: kind))
             }
         }
@@ -200,17 +230,24 @@ public struct DestinationIndex: Sendable {
                 for thread in channel.threads { add(known[thread.id]!) }
             }
         }
+        // A channel both the assistant and the Discord app know is listed once: the assistant row also posts through the app.
+        let assistantIDs = Set(all.filter(\.kind.isAssistant).map(\.id))
+        all.removeAll { item in
+            guard item.kind == .appChannel, let channel = item.discordChannelID, assistantIDs.contains(channel) else { return false }
+            aliases[item.id] = channel
+            return true
+        }
         byID = Dictionary(uniqueKeysWithValues: all.map { ($0.id, $0) })
     }
 
     public func destination(id: String) -> Destination? {
-        byID[id]
+        byID[id] ?? aliases[id].flatMap { byID[$0] }
     }
 
     public func sections(recent: [String], favorites: [String] = [], recentLimit: Int = 5) -> [Section] {
-        let favoriteItems = favorites.compactMap { byID[$0] }
+        let favoriteItems = Self.unique(favorites.compactMap { destination(id: $0) })
         let favoriteIDs = Set(favoriteItems.map(\.id))
-        let recentItems = Array(recent.compactMap { byID[$0] }.filter { !favoriteIDs.contains($0.id) }.prefix(recentLimit))
+        let recentItems = Array(Self.unique(recent.compactMap { destination(id: $0) }).filter { !favoriteIDs.contains($0.id) }.prefix(recentLimit))
         let recentIDs = Set(recentItems.map(\.id)).union(favoriteIDs)
         var sections: [Section] = []
         if !favoriteItems.isEmpty { sections.append(Section(id: "favorites", title: nil, items: favoriteItems)) }
@@ -219,30 +256,32 @@ public struct DestinationIndex: Sendable {
         if !targetItems.isEmpty { sections.append(Section(id: "targets", title: nil, items: targetItems)) }
         var order: [String] = []
         var grouped: [String: [Destination]] = [:]
-        for item in all where item.kind == .appChannel && !recentIDs.contains(item.id) {
-            let key = [item.parent, item.server].compactMap { $0 }.joined(separator: " · ")
+        for item in all where (item.kind.isAssistant || item.kind == .appChannel) && !recentIDs.contains(item.id) {
+            let key = item.isDirectMessage ? "" : item.server ?? ""
             if grouped[key] == nil { order.append(key) }
             grouped[key, default: []].append(item)
         }
-        for key in order {
-            sections.append(Section(id: "app:\(key)", title: key.isEmpty ? nil : key, items: grouped[key] ?? []))
-        }
-        order = []
-        grouped = [:]
-        for item in all where item.kind.isAssistant && !recentIDs.contains(item.id) {
-            let key = item.server ?? ""
-            if grouped[key] == nil { order.append(key) }
-            grouped[key, default: []].append(item)
-        }
+        if let direct = order.firstIndex(of: "") { order.insert(order.remove(at: direct), at: 0) }
         for key in order {
             sections.append(Section(id: "server:\(key)", title: key.isEmpty ? nil : key, items: grouped[key] ?? []))
         }
         return sections
     }
 
-    public func search(_ query: String, recent: [String] = [], favorites: [String] = []) -> [Destination] {
+    private static func unique(_ items: [Destination]) -> [Destination] {
+        var seen = Set<String>()
+        return items.filter { seen.insert($0.id).inserted }
+    }
+
+    public func search(
+        _ query: String, recent: [String] = [], favorites: [String] = [], expanded: [String: Bool]? = nil
+    ) -> [Destination] {
         let tokens = query.split(whereSeparator: \.isWhitespace).map { Self.fold(String($0)) }.filter { !$0.isEmpty }
-        guard !tokens.isEmpty else { return sections(recent: recent, favorites: favorites).flatMap(\.items) }
+        guard !tokens.isEmpty else {
+            let all = sections(recent: recent, favorites: favorites)
+            guard let expanded else { return all.flatMap(\.items) }
+            return all.filter { !$0.isCollapsed(expanded) }.flatMap(\.items)
+        }
         let recentRank = Dictionary(uniqueKeysWithValues: recent.enumerated().map { ($1, $0) })
         let favoriteSet = Set(favorites)
         let scored = all.compactMap { item -> (Destination, Int)? in
@@ -277,6 +316,15 @@ public enum Favorites {
         var copy = list
         copy.swapAt(index, target)
         return copy
+    }
+
+    /// Destinations that can still be added, grouped the way the panel lists them.
+    public static func candidates(in index: DestinationIndex, excluding favorites: [String]) -> [DestinationIndex.Section] {
+        let taken = Set(favorites)
+        return index.sections(recent: []).compactMap { section in
+            let items = section.items.filter { !taken.contains($0.id) }
+            return items.isEmpty ? nil : DestinationIndex.Section(id: section.id, title: section.title, items: items)
+        }
     }
 
     public static func numberIndex(keyCharacter: String) -> Int? {

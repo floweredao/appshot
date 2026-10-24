@@ -10,7 +10,7 @@ enum PanelRenderer {
         let view: NSView
         switch request.scene {
         case "settings":
-            let host = NSHostingView(rootView: SettingsView(controller: controller).frame(height: 760))
+            let host = NSHostingView(rootView: SettingsView(controller: controller).frame(height: request.height ?? 760))
             view = host
         case "discord":
             let studio = String(localized: "demo.server")
@@ -33,13 +33,23 @@ enum PanelRenderer {
             view = NSHostingView(rootView: Form { UpdatesSection(updater: controller.updater) }.formStyle(.grouped).frame(width: 600, height: 240))
         default:
             let model = demoModel(request)
-            if request.scene == "picker" {
+            if request.scene == "servers" {
+                model.index = DestinationIndex(
+                    pinned: [ChannelOption(key: "dm", label: String(localized: "demo.dm"), id: "d1", kind: "direct")],
+                    catalog: demoCatalog()
+                )
+                model.recentIDs = []
+                model.favoriteIDs = []
+                model.expandedSections = ["server:\(String(localized: "demo.server"))": false]
+            }
+            if request.scene == "picker" || request.scene == "servers" {
                 model.pickerOpen = true
                 model.query = ""
                 model.focus = .search
                 model.highlighted = 1
             }
             if request.scene == "typing" { model.note = String(localized: "demo.note") }
+            if ["edit", "crop", "edited"].contains(request.scene) { decorate(model, scene: request.scene) }
             view = NSHostingView(rootView: PanelView(model: model))
         }
         view.appearance = appearance
@@ -72,34 +82,24 @@ enum PanelRenderer {
         let model = PanelModel(appName: "Safari", appIcon: safari.map { NSWorkspace.shared.icon(forFile: $0.path) })
         model.renderMode = true
         model.windowTitle = String(localized: "demo.windowTitle")
-        if let path = request.demoImage, let image = NSImage(contentsOfFile: (path as NSString).expandingTildeInPath) {
-            model.preview = image
-            model.previewAspect = image.size.width / max(image.size.height, 1)
+        if let path = request.demoImage, let image = NSImage(contentsOfFile: (path as NSString).expandingTildeInPath),
+           let cgImage = image.cgImage(forProposedRect: nil, context: nil, hints: nil) {
+            model.setCapture(cgImage)
         } else {
             let renderer = ImageRenderer(content: DemoPage().environment(\.colorScheme, .light))
             renderer.scale = 2
-            if let image = renderer.nsImage {
-                model.preview = image
-                model.previewAspect = image.size.width / max(image.size.height, 1)
-            }
+            if let image = renderer.cgImage { model.setCapture(image) }
         }
         model.textCharacters = 18_432
         model.textMethod = .browserScript
         model.phase = .ready
-        let catalog = DiscordCatalog(updatedAt: Date(), servers: [
-            .init(id: "s1", name: String(localized: "demo.server"), channels: [
-                .init(id: "c1", name: "general"),
-                .init(id: "c2", name: "design", threads: [
-                    .init(id: "t1", name: String(localized: "demo.thread.icon")),
-                    .init(id: "t2", name: String(localized: "demo.thread.onboarding")),
-                ]),
-                .init(id: "c3", name: "release", threads: [.init(id: "t3", name: String(localized: "demo.thread.launch"))]),
-            ]),
-            .init(id: "s2", name: String(localized: "demo.server2"), channels: [.init(id: "c4", name: "reading-list")]),
-        ])
+        let catalog = demoCatalog()
         let pinned = [ChannelOption(key: "dm", label: String(localized: "demo.dm"), id: "d1", kind: "direct")]
         var targets = TargetSettings()
-        targets.apps = [AppTarget(bundleID: "com.apple.Notes", name: String(localized: "demo.notes"))]
+        targets.apps = [
+            AppTarget(bundleID: "com.apple.Notes", name: String(localized: "demo.notes")),
+            AppTarget(bundleID: "com.hnc.Discord", name: "Discord"),
+        ]
         model.index = DestinationIndex(
             pinned: pinned, catalog: catalog,
             targets: targets.destinations(
@@ -111,6 +111,39 @@ enum PanelRenderer {
         model.favoriteIDs = ["d1", "target:app:com.apple.Notes"]
         model.destination = model.index.destination(id: "t1")
         return model
+    }
+
+    private static func demoCatalog() -> DiscordCatalog {
+        DiscordCatalog(updatedAt: Date(), servers: [
+            .init(id: "s1", name: String(localized: "demo.server"), channels: [
+                .init(id: "c1", name: "general"),
+                .init(id: "c2", name: "design", threads: [
+                    .init(id: "t1", name: String(localized: "demo.thread.icon")),
+                    .init(id: "t2", name: String(localized: "demo.thread.onboarding")),
+                ]),
+                .init(id: "c3", name: "release", threads: [.init(id: "t3", name: String(localized: "demo.thread.launch"))]),
+            ]),
+            .init(id: "s2", name: String(localized: "demo.server2"), channels: [
+                "reading-list", "meetups", "introductions", "events", "photos", "books", "off-topic",
+            ].enumerated().map { .init(id: "c\($0.offset + 4)", name: $0.element) }),
+        ], botName: String(localized: "demo.bot"))
+    }
+
+    private static func decorate(_ model: PanelModel, scene: String) {
+        let editor = model.editor
+        editor.add(Markup(.pixelate(CGRect(x: 0.36, y: 0.012, width: 0.3, height: 0.056)), color: .red))
+        editor.add(Markup(.arrow(from: CGPoint(x: 0.9, y: 0.5), to: CGPoint(x: 0.78, y: 0.34)), color: .red))
+        editor.add(Markup(.rectangle(CGRect(x: 0.225, y: 0.515, width: 0.755, height: 0.125)), color: .red))
+        editor.add(Markup(.text(at: CGPoint(x: 0.25, y: 0.68), String(localized: "demo.markup")), color: .red))
+        if scene == "edited" {
+            editor.commit { $0.crop = CGRect(x: 0.2, y: 0.07, width: 0.8, height: 0.68) }
+            return
+        }
+        model.beginEditing()
+        if scene == "crop" {
+            editor.commit { $0.crop = CGRect(x: 0.2, y: 0.07, width: 0.8, height: 0.68) }
+            editor.select(.crop)
+        }
     }
 
     private struct DemoPage: View {
