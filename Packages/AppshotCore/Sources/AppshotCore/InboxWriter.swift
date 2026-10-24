@@ -227,8 +227,20 @@ public struct InboxWriter: Sendable {
         let fd = open(eventsLog.path, O_WRONLY | O_APPEND | O_CREAT, 0o644)
         guard fd >= 0 else { throw WriterError.io("open events log", errno) }
         defer { close(fd) }
-        let bytes = Array(line.utf8)
+        var bytes = Array(line.utf8)
+        if endsMidLine(fd, path: eventsLog.path) { bytes.insert(UInt8(ascii: "\n"), at: 0) }
         let written = bytes.withUnsafeBytes { Foundation.write(fd, $0.baseAddress, $0.count) }
         if written != bytes.count { throw WriterError.io("append event", errno) }
+    }
+
+    /// True when another writer stopped before its newline, so this event would join that line.
+    private func endsMidLine(_ fd: Int32, path: String) -> Bool {
+        let end = lseek(fd, 0, SEEK_END)
+        guard end > 0 else { return false }
+        let reader = open(path, O_RDONLY)
+        guard reader >= 0 else { return false }
+        defer { close(reader) }
+        var last: UInt8 = 0
+        return pread(reader, &last, 1, end - 1) == 1 && last != UInt8(ascii: "\n")
     }
 }
