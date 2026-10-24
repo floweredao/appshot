@@ -134,9 +134,9 @@ import Testing
         #expect(try JSONDecoder().decode(AppTarget.self, from: JSONEncoder().encode(on)).includeScreenText)
     }
 
-    @Test func writerWithoutEventsLogAndPrune() throws {
+    @Test func writerPrunesOldFolders() throws {
         let root = FileManager.default.temporaryDirectory.appending(path: "appshot-target-\(UUID().uuidString)")
-        let writer = InboxWriter(inboxDir: root, eventsLog: nil)
+        let writer = InboxWriter(inboxDir: root)
         let meta = AppshotMeta(
             createdAt: "x", app: .init(name: "A", bundleID: nil, pid: 1), window: .init(title: nil, id: nil, frame: nil),
             url: nil, document: nil, note: "", channel: .init(id: "target:clipboard", label: "Copy", source: "panel"),

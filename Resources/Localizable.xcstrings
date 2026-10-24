@@ -20,6 +20,22 @@
         }
       }
     },
+    "%@ already has an unsent message in Discord. Send or clear it there, then try again.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ already has an unsent message in Discord. Send or clear it there, then try again."
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "디스코드 %@ 입력칸에 아직 안 보낸 글이 있어요. 거기서 보내거나 지운 뒤 다시 해 주세요."
+          }
+        }
+      }
+    },
     "%@ did not come to the front.": {
       "localizations": {
         "en": {
@@ -1031,6 +1047,22 @@
         }
       }
     },
+    "Could not reach the message box of %@ in Discord.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Could not reach the message box of %@ in Discord."
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "디스코드에서 %@ 입력칸에 들어가지 못했어요."
+          }
+        }
+      }
+    },
     "Could not save: %@": {
       "localizations": {
         "en": {
@@ -1219,6 +1251,38 @@
           "stringUnit": {
             "state": "translated",
             "value": "디스코드 보낼 곳"
+          }
+        }
+      }
+    },
+    "Discord did not send the message in %@. It is still in the message box; press Return there.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Discord did not send the message in %@. It is still in the message box; press Return there."
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "디스코드가 %@에 글을 보내지 않았어요. 입력칸에 그대로 있으니 거기서 Return을 눌러 주세요."
+          }
+        }
+      }
+    },
+    "Discord does not show the message in %@.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Discord does not show the message in %@."
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "디스코드 %@에 글이 보이지 않아요."
           }
         }
       }
@@ -2083,38 +2147,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "앱에 붙여넣기"
-          }
-        }
-      }
-    },
-    "Paste into the open channel": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Paste into the open channel"
-          }
-        },
-        "ko": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "열린 채널에 붙여넣기"
-          }
-        }
-      }
-    },
-    "Pasted into %@ in %@.": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Pasted into %1$@ in %2$@."
-          }
-        },
-        "ko": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "%2$@의 %1$@에 붙여 넣었어요."
           }
         }
       }
@@ -3219,6 +3251,22 @@
           "stringUnit": {
             "state": "translated",
             "value": "릴리스가 github.com/floweredao/appshot 밖을 가리켜서 설치하지 않았어요."
+          }
+        }
+      }
+    },
+    "The screenshot and note did not reach the message box of %@.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The screenshot and note did not reach the message box of %@."
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "스크린샷과 메모가 %@ 입력칸에 들어가지 않았어요."
           }
         }
       }

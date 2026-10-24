@@ -53,4 +53,32 @@ import Testing
         #expect(decoded.discord?.message == "4")
         #expect(decoded.discord?.url == "https://discord.com/channels/1/11/4")
     }
+
+    @Test func emptyMessageBoxIgnoresPlaceholderCharacters() {
+        #expect(DiscordComposer.isBlank(""))
+        #expect(DiscordComposer.isBlank("\u{FEFF}\n"))
+        #expect(DiscordComposer.isBlank(" \u{200B}\n"))
+        #expect(!DiscordComposer.isBlank("\u{FEFF}hi"))
+    }
+
+    @Test func pastedNoteIsFoundDespiteReflowedWhitespace() {
+        #expect(DiscordComposer.contains("\u{FEFF}look  here\nplease", note: "look here please"))
+        #expect(DiscordComposer.contains("anything", note: "  "))
+        #expect(!DiscordComposer.contains("\u{FEFF}\n", note: "look here"))
+    }
+
+    @Test func updatingMetaKeepsTheRestAndAddsTheError() throws {
+        let root = FileManager.default.temporaryDirectory.appending(path: "appshot-meta-\(UUID().uuidString)")
+        let meta = AppshotMeta(
+            createdAt: "now", app: .init(name: "A", bundleID: nil, pid: 1), window: .init(title: nil, id: nil, frame: nil),
+            url: nil, document: nil, note: "hi", channel: .init(id: "11", label: "#design", source: "panel"),
+            text: .init(characters: 0, truncated: false, nodes: 0), errors: ["ocr"]
+        )
+        let folder = try InboxWriter(inboxDir: root).write(AppshotPayload(png: nil, jpeg: nil, markdown: "m", meta: meta))
+        try InboxWriter.updateMeta(in: folder) { $0.errors.append("not sent") }
+        let decoded = try JSONDecoder().decode(AppshotMeta.self, from: Data(contentsOf: folder.appending(path: "meta.json")))
+        #expect(decoded.errors == ["ocr", "not sent"])
+        #expect(decoded.note == "hi")
+        #expect(decoded.files["text"] == "text.md")
+    }
 }

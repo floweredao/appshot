@@ -1,5 +1,27 @@
 import Foundation
 
+/// Discord's message box as Accessibility reports it.
+public enum DiscordComposer {
+    /// An empty Slate editor still reports placeholder characters (newlines, zero-width spaces, BOM).
+    public static func isBlank(_ text: String) -> Bool {
+        text.unicodeScalars.allSatisfy { CharacterSet.whitespacesAndNewlines.contains($0) || invisible.contains($0.value) }
+    }
+
+    /// Whether the pasted note shows in the message box (compared without whitespace, which Discord reflows).
+    public static func contains(_ text: String, note: String) -> Bool {
+        let wanted = squeeze(note)
+        return wanted.isEmpty || squeeze(text).contains(wanted)
+    }
+
+    private static let invisible: Set<UInt32> = [0x200B, 0x200C, 0x200D, 0x2060, 0xFEFF]
+
+    private static func squeeze(_ text: String) -> String {
+        String(String.UnicodeScalarView(text.unicodeScalars.filter {
+            !CharacterSet.whitespacesAndNewlines.contains($0) && !invisible.contains($0.value)
+        }))
+    }
+}
+
 /// Posting an appshot into the assistant's Discord channel as the owner, through the Discord app,
 /// so the channel shows the screenshot and note and the assistant can reply to that message.
 public enum AssistantPost {

@@ -7,7 +7,6 @@ import Testing
 private func makeConfig(_ root: URL) -> AppshotConfig {
     AppshotConfig(
         stateDir: root.appending(path: "state").path,
-        inboxDir: root.appending(path: "inbox/appshot").path,
         channels: [
             ChannelOption(key: "general", label: "#general", id: "100"),
             ChannelOption(key: "coding", label: "#coding", id: "200"),
@@ -84,13 +83,19 @@ private func inboxLine(_ id: String, _ channel: String, _ text: String) -> Strin
 
     @Test func resolvesRelativeStateFilesAndTilde() {
         let config = AppshotConfig(
-            stateDir: "~/s", inboxDir: "~/i", channels: [ChannelOption(key: "g", label: "g", id: "1")],
-            fallbackChannel: "g", eventsLog: "/abs/events.log"
+            stateDir: "~/s", channels: [ChannelOption(key: "g", label: "g", id: "1")],
+            fallbackChannel: "g", ownerInbox: "/abs/owner.jsonl"
         )
         let home = FileManager.default.homeDirectoryForCurrentUser.path
         #expect(config.handledIdsURL.path == "\(home)/s/handled-ids.txt")
-        #expect(config.eventsLogURL.path == "/abs/events.log")
-        #expect(config.inboxURL.path.hasPrefix(home))
+        #expect(config.ownerInboxURL.path == "/abs/owner.jsonl")
+    }
+
+    @Test func oldConfigWithInboxKeysStillLoads() throws {
+        let json = #"{"stateDir":"~/s","inboxDir":"~/i","eventsLog":"e.log","channels":[{"key":"g","label":"g","id":"1"}],"fallbackChannel":"g"}"#
+        let config = try JSONDecoder().decode(AppshotConfig.self, from: Data(json.utf8))
+        try config.validate()
+        #expect(config.channels.map(\.id) == ["1"])
     }
 }
 
@@ -106,20 +111,19 @@ private func inboxLine(_ id: String, _ channel: String, _ text: String) -> Strin
         )
     }
 
-    @Test func writesFolderAtomicallyAndAppendsOneEvent() throws {
+    @Test func writesFolderAtomicallyWithoutEventsLog() throws {
         let root = try tempRoot()
         let config = makeConfig(root)
-        try "EVENT OTHER x\n".write(to: config.eventsLogURL, atomically: true, encoding: .utf8)
-        let writer = InboxWriter(inboxDir: config.inboxURL, eventsLog: config.eventsLogURL)
+        let inbox = root.appending(path: "captures")
+        let writer = InboxWriter(inboxDir: inbox)
 
         let folder = try writer.write(AppshotPayload(png: Data([1]), jpeg: Data([2]), markdown: "hi", meta: meta()))
 
         let names = try FileManager.default.contentsOfDirectory(atPath: folder.path).sorted()
         #expect(names == ["meta.json", "shot.jpg", "shot.png", "text.md"])
-        let siblings = try FileManager.default.contentsOfDirectory(atPath: config.inboxURL.path)
+        let siblings = try FileManager.default.contentsOfDirectory(atPath: inbox.path)
         #expect(siblings == [folder.lastPathComponent])
-        let log = try String(contentsOf: config.eventsLogURL, encoding: .utf8)
-        #expect(log == "EVENT OTHER x\nEVENT APPSHOT \(folder.path)\n")
+        #expect(try FileManager.default.contentsOfDirectory(atPath: config.stateURL.path).isEmpty)
         let decoded = try JSONDecoder().decode(AppshotMeta.self, from: Data(contentsOf: folder.appending(path: "meta.json")))
         #expect(decoded.files == ["screenshot": "shot.png", "preview": "shot.jpg", "text": "text.md"])
         #expect(decoded.note == "look")
@@ -127,29 +131,25 @@ private func inboxLine(_ id: String, _ channel: String, _ text: String) -> Strin
 
     @Test func sameMillisecondGetsSuffixedFolder() throws {
         let root = try tempRoot()
-        let config = makeConfig(root)
-        let writer = InboxWriter(inboxDir: config.inboxURL, eventsLog: config.eventsLogURL)
+        let writer = InboxWriter(inboxDir: root.appending(path: "captures"))
         let now = Date(timeIntervalSince1970: 1_800_000_000)
 
         let first = try writer.write(AppshotPayload(png: nil, jpeg: nil, markdown: "a", meta: meta()), now: now)
         let second = try writer.write(AppshotPayload(png: nil, jpeg: nil, markdown: "b", meta: meta()), now: now)
 
         #expect(second.lastPathComponent == first.lastPathComponent + "-1")
-        let log = try String(contentsOf: config.eventsLogURL, encoding: .utf8)
-        #expect(log.split(separator: "\n").count == 2)
     }
 
-    @Test func failedWriteLeavesNoStagingAndNoEvent() throws {
+    @Test func failedWriteThrowsAndLeavesNoStaging() throws {
         let root = try tempRoot()
-        let config = makeConfig(root)
-        let blocker = root.appending(path: "state/blocked")
+        let blocker = root.appending(path: "blocked")
         try "file".write(to: blocker, atomically: true, encoding: .utf8)
-        let writer = InboxWriter(inboxDir: config.inboxURL, eventsLog: blocker.appending(path: "events.log"))
+        let writer = InboxWriter(inboxDir: blocker.appending(path: "captures"))
 
         #expect(throws: (any Error).self) {
             try writer.write(AppshotPayload(png: nil, jpeg: nil, markdown: "a", meta: meta()))
         }
-        let leftovers = try FileManager.default.contentsOfDirectory(atPath: config.inboxURL.path)
+        let leftovers = try FileManager.default.contentsOfDirectory(atPath: root.path)
         #expect(leftovers.filter { $0.hasSuffix(".tmp") }.isEmpty)
     }
 }

@@ -62,16 +62,16 @@ Pick where an appshot goes in the panel with ⌘K. Appshot remembers the last ta
 
 | Target | What happens |
 | --- | --- |
-| **Assistant (Discord)** | Opens the server, channel, thread, or DM you picked in the Discord app and posts the screenshot and your note there as your message. Then it writes the folder to your assistant's inbox, with that message's ID in `meta.json` (`discord.message`), and appends `EVENT APPSHOT` to its events log so the assistant can reply to it. |
+| **Discord channel, thread, or DM** | Opens the place you picked in the Discord app, puts the screenshot and your note into its message box, and sends them as your message. Appshot checks every step through Accessibility: it closes an image viewer or dialog that covers the channel, refuses to touch a message box that already holds an unsent message, and waits until the message box is empty again. When your assistant's bot can read the channel, Appshot also looks the message up and records its ID in the local `meta.json` (`discord.message`). The visible message is the only delivery; nothing is written into the assistant's files. If the message did not go out, the panel comes back with the reason, and `meta.json` lists it under `errors`. |
 | **Copy to Clipboard** | Puts the screenshot (as an image) and the note plus window text (as text) on the clipboard. |
 | **Save to Folder…** | Asks for a folder (remembering the last one) and copies `shot.png`, `shot.jpg`, `text.md`, and `meta.json` there. |
 | **Paste into an app** | Brings an app you added (ChatGPT, Claude, Codex, Notes, Slack, …) to the front and pastes into its focused text field. Per app, choose *Image, then text*, *Files (PNG + text.md)*, *Text only*, or *Image only*, and optionally press Return. By default Appshot pastes only your note with the screenshot; turn on **Add screen text** to also paste the text it read from the window. |
 | **Share…** | Opens the macOS Share menu (Mail, Messages, AirDrop, …) with the screenshot and text. |
 | **Custom command** | Runs a shell command, opens a URL scheme, or POSTs JSON to a webhook. Placeholders: `{folder}` `{note}` `{app}` `{title}` `{url}` `{screenshot}` `{preview}` `{text}` `{channel}`. Shell values are quoted, and `APPSHOT_*` environment variables are set. |
 
-**Discord servers and channels.** When you add the Discord app as a paste target (**Settings… › Discord servers › Add Discord** if it's installed), Appshot reads the channels the Discord app shows through Accessibility and lists them in the picker, grouped by server, with the Discord icon. Choosing one opens that channel in Discord and pastes there. **Read All Servers** opens each server in your server sidebar for a moment, reads its channels, and returns to the channel you had open, so every server you belong to shows up, not just the one that was open. Turn whole servers or single channels off to keep them out of the panel; servers found later show up on their own. The same list covers your assistant bot's servers when the config file has a catalog. If Discord isn't installed, isn't running, or Accessibility is off, the section says what to do. Channels are kept in `~/Library/Application Support/Appshot/app-channels.json`.
+**Discord servers and channels.** When you add the Discord app as a paste target (**Settings… › Discord servers › Add Discord** if it's installed), Appshot reads the channels the Discord app shows through Accessibility and lists them in the picker, grouped by server, with the Discord icon. Choosing one opens that channel in Discord and posts there, as above. **Read All Servers** opens each server in your server sidebar for a moment, reads its channels, and returns to the channel you had open, so every server you belong to shows up, not just the one that was open. Turn whole servers or single channels off to keep them out of the panel; servers found later show up on their own. The same list covers your assistant bot's servers when the config file has a catalog. If Discord isn't installed, isn't running, or Accessibility is off, the section says what to do. Channels are kept in `~/Library/Application Support/Appshot/app-channels.json`.
 
-**Long Discord lists.** Each Discord channel appears once, under its server, whether Appshot found it through the Discord app or your assistant's bot; threads sit indented under their channel. Click a server's heading to fold or unfold it. Servers with more than six entries start folded, and Appshot remembers what you open or close. Favorites and recent destinations stay at the top, and typing in the search field looks through every server, folded or not. Your assistant's DM is named after the bot (for example **DM · Helper**) rather than the label in the config file. The **Discord** row under apps pastes into whichever channel is open in Discord.
+**Long Discord lists.** Each Discord channel appears once, under its server, whether Appshot found it through the Discord app or your assistant's bot; threads sit indented under their channel. Click a server's heading to fold or unfold it. Servers with more than six entries start folded, and Appshot remembers what you open or close. Favorites and recent destinations stay at the top, and typing in the search field looks through every server, folded or not. Your assistant's DM is named after the bot (for example **DM · Helper**) rather than the label in the config file. The **Discord** row under apps (*Open and paste*) brings Discord to the front and pastes into whichever channel is open, like any other app.
 
 <p align="center"><img src="docs/discord-en-light.png" width="560" alt="Discord servers in Settings, light mode"></p>
 <p align="center"><img src="docs/discord-en-dark.png" width="560" alt="Discord servers in Settings, dark mode"></p>
@@ -131,22 +131,22 @@ Appshot warns you when a combination is normally used by macOS (for example ⌘S
 flowchart LR
   A["Both ⌘"] --> B["Capture window<br/>+ read text"]
   B --> C["Panel: note<br/>+ destination"]
-  C --> D["inbox/&lt;time&gt;/<br/>shot · text · meta"]
-  D --> E["EVENT APPSHOT<br/>in events.log"]
-  E --> F["Assistant replies<br/>in the chosen channel"]
+  C --> D["Discord app:<br/>open channel, paste, send"]
+  D --> E["Your message<br/>in the channel"]
+  C --> F["Captures/&lt;time&gt;/<br/>shot · text · meta"]
 ```
 
-Each appshot is one folder:
+The panel stays open when you click another window; it closes only when you send, press esc, or cancel. Each appshot also keeps a local folder (the latest 50 are kept):
 
 ```
-<inboxDir>/<yyyyMMdd-HHmmss-SSS>/
+~/Library/Application Support/Appshot/Captures/<yyyyMMdd-HHmmss-SSS>/
   shot.png    full-resolution window capture
   shot.jpg    preview, long edge 1568 px
   text.md     window text as Markdown (selection first, then the page)
   meta.json   app, window, URL, your note, destination, text method, errors
 ```
 
-Appshot builds the folder in a staging directory, renaming each file from `.tmp`, and then renames the folder into place. Only after that does it append `EVENT APPSHOT <folder>` to the events log, so the assistant never sees a half-written folder.
+Appshot builds the folder in a staging directory, renaming each file from `.tmp`, and then renames the folder into place, so a half-written folder never appears.
 
 ## What Appshot reads
 
@@ -171,7 +171,6 @@ Machine-specific values never live in the repository. Appshot reads `~/Library/A
 ```json
 {
   "stateDir": "~/path/to/assistant/state",
-  "inboxDir": "~/path/to/assistant/inbox/appshot",
   "channels": [
     { "key": "dm", "label": "My DM", "id": "DM_CHANNEL_ID", "kind": "direct" },
     { "key": "general", "label": "#general", "id": "GENERAL_CHANNEL_ID", "kind": "channel" }
@@ -183,8 +182,7 @@ Machine-specific values never live in the repository. Appshot reads `~/Library/A
 
 | Key | Meaning |
 | --- | --- |
-| `stateDir` | Folder with `events.log`, `owner-inbox.jsonl`, and `handled-ids.txt`. Each can be overridden with `eventsLog`, `ownerInbox`, or `handledIds`. |
-| `inboxDir` | Where appshot folders are created. Keep it out of `~/Documents`, `~/Desktop`, and `~/Downloads`, or macOS asks for folder access. |
+| `stateDir` | Folder with your assistant's `owner-inbox.jsonl` and `handled-ids.txt`, read only to preselect the last channel. Each can be overridden with `ownerInbox` or `handledIds`. Appshot never writes there. |
 | `channels` | Destinations pinned at the top of the picker, such as your DM. |
 | `catalog` | Optional. Appshot runs this CLI (`server list`, `channel list`, `thread list`) every `refreshMinutes` minutes and caches servers, channels, and active threads in `~/Library/Caches/Appshot/discord-catalog.json`. The bot token stays inside that CLI. |
 | `fallbackChannel` | Used when no recent conversation can be found. |
@@ -193,7 +191,7 @@ The preselected destination is the channel of the last message your assistant ha
 
 ## Privacy
 
-- **What is saved:** the screenshot, the window text, your note, and metadata, all in `inboxDir` on your Mac. Also stored locally: the Discord destination list (`~/Library/Caches/Appshot`) and your recent destinations and shortcut (app preferences).
+- **What is saved:** the screenshot, the window text, your note, and metadata, all in Appshot's `Captures` folder on your Mac. Also stored locally: the Discord destination list (`~/Library/Caches/Appshot`) and your recent destinations and shortcut (app preferences).
 - **Pixelated captures:** when you pixelate part of the screenshot, the window text, URL, and document path are left out of what Appshot saves and pastes.
 - **What is sent:** for a Discord destination, the screenshot and your note, posted by the Discord app as your message. The window text stays in the folder unless you turn on **Add screen text** for Discord. Appshot itself makes no network calls; it asks your assistant's CLI for the posted message's ID.
 - **What is never read:** password fields.
