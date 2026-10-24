@@ -132,7 +132,7 @@ public enum UpdateCheck {
         let prefix = "sha256:"
         guard digest.lowercased().hasPrefix(prefix) else { return nil }
         let hex = digest.dropFirst(prefix.count).lowercased()
-        guard hex.count == 64, hex.allSatisfy({ $0.isHexDigit }) else { return nil }
+        guard hex.count == 64, hex.allSatisfy({ $0.isASCII && $0.isHexDigit }) else { return nil }
         return String(hex)
     }
 
