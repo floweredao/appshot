@@ -56,6 +56,19 @@ import Testing
         #expect(index.search("co", favorites: ["target:clipboard"]).first?.id == "target:clipboard")
     }
 
+    @Test func favoriteCandidatesSkipFavoritesAndKeepServerGroups() {
+        let catalog = DiscordCatalog(updatedAt: Date(), servers: [
+            .init(id: "s", name: "S", channels: [.init(id: "c1", name: "general")]),
+        ])
+        let index = DestinationIndex(pinned: [], catalog: catalog, targets: settings().destinations(clipboardName: "Copy", folderName: "Save", shareName: "Share"))
+        let sections = Favorites.candidates(in: index, excluding: ["target:clipboard", "c1"])
+        #expect(sections.map(\.id) == ["targets"])
+        #expect(sections[0].items.map(\.id) == ["target:app:com.openai.chat", "target:folder", "target:command:c1"])
+        let all = Favorites.candidates(in: index, excluding: [])
+        #expect(all.map(\.id) == ["targets", "server:S"])
+        #expect(all[1].title == "S")
+    }
+
     @Test func favoriteListToggleMoveAndNumberKeys() {
         #expect(Favorites.toggle("a", in: ["b"]) == ["b", "a"])
         #expect(Favorites.toggle("a", in: ["a", "b"]) == ["b"])

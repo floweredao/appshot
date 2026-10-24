@@ -679,6 +679,7 @@ struct HeadlessRequest: Sendable {
         var dark: Bool
         var scene: String
         var demoImage: String?
+        var height: Double?
     }
 
     var note = ""
@@ -709,6 +710,7 @@ struct HeadlessRequest: Sendable {
             case "--dark": render.dark = true
             case "--scene": render.scene = iterator.next() ?? "panel"
             case "--demo-image": render.demoImage = iterator.next()
+            case "--height": render.height = Double(iterator.next() ?? "")
             case "--check-update": request.update = request.update ?? .check
             case "--install-update": request.update = .install(relaunch: !arguments.contains("--no-relaunch"))
             case "--verify-update": verifyZip = iterator.next()
