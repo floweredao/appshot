@@ -31,6 +31,7 @@ enum DeliveryError: Error, CustomStringConvertible {
     case channelDidNotOpen(String)
     case command(Int32, String)
     case badURL
+    case notOpened(String)
     case http(Int)
     case cancelled
 
@@ -41,6 +42,7 @@ enum DeliveryError: Error, CustomStringConvertible {
         case .channelDidNotOpen(let name): String(localized: "\(name) did not open the channel.")
         case .command(let code, let output): String(localized: "The command failed (\(code)): \(output)")
         case .badURL: String(localized: "The URL template did not produce a valid URL.")
+        case .notOpened(let scheme): String(localized: "No app opened the \(scheme): URL.")
         case .http(let status): String(localized: "The webhook answered with HTTP \(status).")
         case .cancelled: String(localized: "Cancelled.")
         }
@@ -155,7 +157,7 @@ enum TargetDelivery {
         switch command.kind {
         case .url:
             guard let url = CommandTemplate.url(command.template, values: payload.values) else { throw DeliveryError.badURL }
-            NSWorkspace.shared.open(url)
+            guard NSWorkspace.shared.open(url) else { throw DeliveryError.notOpened(url.scheme ?? "") }
         case .shell:
             let script = CommandTemplate.shell(command.template, values: payload.values)
             let environment = ProcessInfo.processInfo.environment.merging(CommandTemplate.environment(payload.values)) { $1 }
