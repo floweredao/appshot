@@ -12,14 +12,30 @@ public struct AppTarget: Codable, Sendable, Hashable, Identifiable {
     public var name: String
     public var paste: PasteMode
     public var pressReturn: Bool
+    /// Paste the text Appshot read from the screen after the note. Off by default: the note and the screenshot
+    /// are the message, and thousands of characters of screen text turn it into a file in chat apps.
+    public var includeScreenText: Bool
 
     public var id: String { bundleID }
 
-    public init(bundleID: String, name: String, paste: PasteMode = .imageAndText, pressReturn: Bool = false) {
+    public init(
+        bundleID: String, name: String, paste: PasteMode = .imageAndText, pressReturn: Bool = false,
+        includeScreenText: Bool = false
+    ) {
         self.bundleID = bundleID
         self.name = name
         self.paste = paste
         self.pressReturn = pressReturn
+        self.includeScreenText = includeScreenText
+    }
+
+    public init(from decoder: any Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        bundleID = try container.decode(String.self, forKey: .bundleID)
+        name = try container.decode(String.self, forKey: .name)
+        paste = try container.decode(PasteMode.self, forKey: .paste)
+        pressReturn = try container.decode(Bool.self, forKey: .pressReturn)
+        includeScreenText = try container.decodeIfPresent(Bool.self, forKey: .includeScreenText) ?? false
     }
 }
 
@@ -142,5 +158,35 @@ public enum ClipboardText {
         let trimmed = note.trimmingCharacters(in: .whitespacesAndNewlines)
         let body = TextComposer.clip(markdown, limit: limit).text
         return trimmed.isEmpty ? body : trimmed + "\n\n" + body
+    }
+
+    /// Discord turns a pasted message longer than 2,000 characters into a `message.txt` attachment
+    /// (4,000 with Nitro). Keep the screen text only when the whole message fits; otherwise send the note alone.
+    public static let discordLimit = 2_000
+
+    public static func discordMessage(note: String, markdown: String, limit: Int = discordLimit) -> String {
+        let trimmed = note.trimmingCharacters(in: .whitespacesAndNewlines)
+        let full = compose(note: trimmed, markdown: markdown.trimmingCharacters(in: .whitespacesAndNewlines))
+        return full.utf16.count <= limit ? full : trimmed
+    }
+
+    /// The texts to paste one after another into an app. Without screen text that is just the note.
+    /// With it, Discord gets one message that fits its limit, and other apps get the note as its own paste
+    /// before the screen text: chat and AI apps (ChatGPT, Claude, Codex) turn a long single paste into a file
+    /// attachment, so pasted separately only the screen text becomes the attachment and the note stays the message.
+    public static func pastes(
+        note: String, markdown: String, bundleID: String, includeScreenText: Bool, limit: Int = 20_000
+    ) -> [String] {
+        guard includeScreenText else {
+            let trimmed = note.trimmingCharacters(in: .whitespacesAndNewlines)
+            return trimmed.isEmpty ? [] : [trimmed]
+        }
+        if DiscordLink.isDiscord(bundleID: bundleID) {
+            let message = discordMessage(note: note, markdown: markdown)
+            return message.isEmpty ? [] : [message]
+        }
+        let trimmed = note.trimmingCharacters(in: .whitespacesAndNewlines)
+        let body = compose(note: "", markdown: markdown, limit: limit)
+        return (trimmed.isEmpty ? [] : [trimmed + "\n\n"]) + (body.isEmpty ? [] : [body])
     }
 }
