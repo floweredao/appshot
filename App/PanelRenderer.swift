@@ -10,7 +10,7 @@ enum PanelRenderer {
         let view: NSView
         switch request.scene {
         case "settings":
-            let host = NSHostingView(rootView: SettingsView(controller: controller).frame(height: 760))
+            let host = NSHostingView(rootView: SettingsView(controller: controller).frame(height: request.height ?? 760))
             view = host
         case "discord":
             let studio = String(localized: "demo.server")

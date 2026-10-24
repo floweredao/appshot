@@ -279,6 +279,15 @@ public enum Favorites {
         return copy
     }
 
+    /// Destinations that can still be added, grouped the way the panel lists them.
+    public static func candidates(in index: DestinationIndex, excluding favorites: [String]) -> [DestinationIndex.Section] {
+        let taken = Set(favorites)
+        return index.sections(recent: []).compactMap { section in
+            let items = section.items.filter { !taken.contains($0.id) }
+            return items.isEmpty ? nil : DestinationIndex.Section(id: section.id, title: section.title, items: items)
+        }
+    }
+
     public static func numberIndex(keyCharacter: String) -> Int? {
         guard let digit = Int(keyCharacter), (1...9).contains(digit) else { return nil }
         return digit - 1
