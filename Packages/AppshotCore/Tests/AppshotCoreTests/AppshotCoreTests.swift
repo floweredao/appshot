@@ -72,6 +72,19 @@ private func inboxLine(_ id: String, _ channel: String, _ text: String) -> Strin
         #expect(resolved.id == "100")
         #expect(resolved.source == .lastReceived)
     }
+
+    @Test func keepsCompleteFirstLineWhenTailStartsOnLineBoundary() throws {
+        let root = try tempRoot()
+        let config = makeConfig(root)
+        let early = inboxLine("1", "300", "early")
+        let late = inboxLine("2", "200", "late")
+        try "2\n".write(to: config.handledIdsURL, atomically: true, encoding: .utf8)
+        for trailer in ["", "\n"] {
+            try (early + "\n" + late + trailer).write(to: config.ownerInboxURL, atomically: true, encoding: .utf8)
+            let resolved = ChannelResolver(config: config, tailBytes: late.utf8.count + trailer.utf8.count).resolve()
+            #expect(resolved == ResolvedChannel(id: "200", label: "#coding", source: .lastHandled, lastMessage: "late"), "\(trailer.debugDescription)")
+        }
+    }
 }
 
 @Suite struct ConfigTests {
@@ -96,6 +109,22 @@ private func inboxLine(_ id: String, _ channel: String, _ text: String) -> Strin
         let config = try JSONDecoder().decode(AppshotConfig.self, from: Data(json.utf8))
         try config.validate()
         #expect(config.channels.map(\.id) == ["1"])
+    }
+
+    @Test func emptyOverridesUseDefaultFilesAndUnknownKeysAreIgnored() throws {
+        let root = try tempRoot()
+        let url = root.appending(path: "config.json")
+        let json = #"""
+        {"stateDir":"/srv/appshot/state","inboxDir":"/srv/appshot/inbox","fallbackChannel":"g",
+         "channels":[{"key":"g","label":"g","id":"1"}],"theme":"dark",
+         "eventsLog":"","ownerInbox":"","handledIds":"","catalog":{"cli":"/bin/true","path":""}}
+        """#
+        try json.write(to: url, atomically: true, encoding: .utf8)
+
+        let config = try AppshotConfig.load(from: url)
+        #expect(config.ownerInboxURL.path == "/srv/appshot/state/owner-inbox.jsonl")
+        #expect(config.handledIdsURL.path == "/srv/appshot/state/handled-ids.txt")
+        #expect(config.catalog?.cacheURL == CatalogSource(cli: "/bin/true").cacheURL)
     }
 }
 
@@ -151,6 +180,21 @@ private func inboxLine(_ id: String, _ channel: String, _ text: String) -> Strin
         }
         let leftovers = try FileManager.default.contentsOfDirectory(atPath: root.path)
         #expect(leftovers.filter { $0.hasSuffix(".tmp") }.isEmpty)
+    }
+
+    @Test func pruneKeepsTheNewestFolderWhenTheClockMovesBack() throws {
+        let root = try tempRoot()
+        let captures = root.appending(path: "captures")
+        let writer = InboxWriter(inboxDir: captures)
+        let payload = AppshotPayload(png: nil, jpeg: nil, markdown: "a", meta: meta())
+        let older = try writer.write(payload, now: Date(timeIntervalSince1970: 1_800_003_600))
+        try FileManager.default.setAttributes([.creationDate: Date(timeIntervalSinceNow: -3600)], ofItemAtPath: older.path)
+        // Written last, after the clock or time zone moved back an hour, so its name sorts first.
+        let newest = try writer.write(payload, now: Date(timeIntervalSince1970: 1_800_000_000))
+
+        writer.prune(keeping: 1)
+
+        #expect(try FileManager.default.contentsOfDirectory(atPath: captures.path) == [newest.lastPathComponent])
     }
 }
 
@@ -221,6 +265,45 @@ private func inboxLine(_ id: String, _ channel: String, _ text: String) -> Strin
         #expect(composed.markdown.hasPrefix("# A\n\n- URL: https://e\n\n"))
         #expect(composed.markdown.contains("characters omitted"))
         #expect(composed.markdown.hasSuffix("line 99\n"))
+    }
+
+    @Test func fieldFenceOutlastsBackticksInside() {
+        let composed = TextComposer.compose(
+            appName: "Editor", windowTitle: nil, url: nil, document: nil,
+            lines: [.init(.field, "Run:\n```sh\nmake\n```"), .init(.body, "after")],
+            traversalTruncated: false
+        )
+        #expect(composed.markdown == "# Editor\n\n\n````\nRun:\n```sh\nmake\n```\n````\nafter\n")
+    }
+
+    @Test func emptyTraversalSaysSoAndKeepsTruncationNotice() {
+        let composed = TextComposer.compose(
+            appName: "A", windowTitle: nil, url: nil, document: nil, lines: [.init(.body, "  \n ")], traversalTruncated: true
+        )
+        #expect(composed.markdown == "# A\n\n_(no readable text from accessibility)_\n\n_(text truncated)_\n")
+        #expect(composed.truncated)
+        #expect(composed.bodyCharacters == 0)
+    }
+
+    @Test func clipCountsCharactersSoEmojiAndHangulStayWhole() {
+        let family = "👨‍👩‍👧"
+        let text = String(repeating: family, count: 50) + String(repeating: "한", count: 50)
+        let clipped = TextComposer.clip(text, limit: 10)
+        #expect(clipped.omitted == 90)
+        #expect(clipped.text == String(repeating: family, count: 7) + "\n\n_(90 characters omitted)_\n\n" + String(repeating: "한", count: 3))
+        #expect(TextComposer.clip(String(repeating: family, count: 10), limit: 10).omitted == 0)
+        #expect(TextComposer.clip("", limit: 10).text == "")
+    }
+
+    @Test func composePageNormalizesLineEndingsAndHandlesEmptyText() {
+        let page = TextComposer.composePage(
+            appName: "Terminal", windowTitle: "", url: nil, selection: "  \n ", text: "a\r\nb\r\n\r\n\r\n\r\nc"
+        )
+        #expect(page.markdown == "# Terminal\n\na\nb\n\nc\n")
+        #expect(page.bodyCharacters == 6)
+        let empty = TextComposer.composePage(appName: "A", windowTitle: nil, url: nil, selection: nil, text: " \n ")
+        #expect(empty.markdown == "# A\n\n_(no readable text)_\n")
+        #expect(!empty.truncated)
     }
 }
 

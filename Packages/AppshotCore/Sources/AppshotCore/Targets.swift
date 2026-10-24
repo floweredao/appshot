@@ -69,6 +69,21 @@ public struct TargetSettings: Codable, Sendable, Equatable {
 
     public init() {}
 
+    enum CodingKeys: String, CodingKey {
+        case clipboard, folder, share, apps, commands, lastFolder
+    }
+
+    /// A key the saved copy does not have keeps its default, so one missing setting does not drop every app and command.
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        clipboard = try container.decodeIfPresent(Bool.self, forKey: .clipboard) ?? true
+        folder = try container.decodeIfPresent(Bool.self, forKey: .folder) ?? true
+        share = try container.decodeIfPresent(Bool.self, forKey: .share) ?? true
+        apps = try container.decodeIfPresent([AppTarget].self, forKey: .apps) ?? []
+        commands = try container.decodeIfPresent([CommandTarget].self, forKey: .commands) ?? []
+        lastFolder = try container.decodeIfPresent(String.self, forKey: .lastFolder)
+    }
+
     public static func decode(_ data: Data?) -> TargetSettings {
         guard let data, let value = try? JSONDecoder().decode(TargetSettings.self, from: data) else { return TargetSettings() }
         return value

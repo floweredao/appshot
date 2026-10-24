@@ -90,6 +90,12 @@ import Testing
         #expect(url?.absoluteString == "myapp://new?text=a%26b%20c&path=%2Fx%2Fy")
     }
 
+    @Test func templatesEncodeUnicodeAndLeaveUnclosedBraces() {
+        let url = CommandTemplate.url("myapp://new?text={note}", values: ["note": "한글 ✅"])
+        #expect(url?.absoluteString == "myapp://new?text=%ED%95%9C%EA%B8%80%20%E2%9C%85")
+        #expect(CommandTemplate.shell("echo {note", values: ["note": "x"]) == "echo {note")
+    }
+
     @Test func environmentNamesAreUppercasePrefixed() {
         #expect(CommandTemplate.environment(["folder": "/f"]) == ["APPSHOT_FOLDER": "/f"])
     }

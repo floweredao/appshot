@@ -47,7 +47,9 @@ public struct ChannelResolver: Sendable {
     }
 
     private func lastHandledID() -> String? {
-        guard let text = try? String(contentsOf: config.handledIdsURL, encoding: .utf8) else { return nil }
+        guard let data = try? Data(contentsOf: config.handledIdsURL) else { return nil }
+        // One byte that is not UTF-8, such as from a torn write, must not hide every ID in the file.
+        let text = String(decoding: data, as: UTF8.self)
         return text.split(whereSeparator: \.isNewline)
             .map { $0.trimmingCharacters(in: .whitespaces) }
             .last { !$0.isEmpty }
@@ -57,13 +59,15 @@ public struct ChannelResolver: Sendable {
         guard let handle = try? FileHandle(forReadingFrom: config.ownerInboxURL) else { return [] }
         defer { try? handle.close() }
         guard let size = try? handle.seekToEnd() else { return [] }
-        let start = size > UInt64(tailBytes) ? size - UInt64(tailBytes) : 0
+        // One byte before the window shows whether the window starts on a line boundary.
+        let start = size > UInt64(tailBytes) ? size - UInt64(tailBytes) - 1 : 0
         guard (try? handle.seek(toOffset: start)) != nil,
               let data = try? handle.readToEnd() else { return [] }
         var lines = data.split(separator: UInt8(ascii: "\n"))
-        if start > 0, !lines.isEmpty { lines.removeFirst() }
+        if start > 0, data.first != UInt8(ascii: "\n"), !lines.isEmpty { lines.removeFirst() }
         let decoder = JSONDecoder()
-        return lines.compactMap { try? decoder.decode(Record.self, from: Data($0)) }
+        // A message cut inside a multi-byte character still names its channel.
+        return lines.compactMap { try? decoder.decode(Record.self, from: Data(String(decoding: $0, as: UTF8.self).utf8)) }
             .filter { !$0.channel.isEmpty }
     }
 }
