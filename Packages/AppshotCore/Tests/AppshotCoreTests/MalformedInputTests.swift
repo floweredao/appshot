@@ -55,3 +55,29 @@ private func inboxLine(_ id: String, _ channel: String, _ text: String) -> Strin
         #expect(resolved.lastMessage?.hasPrefix("cut ") == true)
     }
 }
+
+@Suite struct MalformedEventsLogTests {
+    private func meta() -> AppshotMeta {
+        AppshotMeta(
+            createdAt: "2026-01-01T00:00:00Z",
+            app: .init(name: "Safari", bundleID: "com.apple.Safari", pid: 1),
+            window: .init(title: "Example", id: 7, frame: [0, 0, 10, 10]),
+            url: "https://example.com", document: nil, note: "look",
+            channel: .init(id: "200", label: "#coding", source: "manual"),
+            text: .init(characters: 3, truncated: false, nodes: 1), errors: []
+        )
+    }
+
+    @Test func eventStartsItsOwnLineAfterAPartialLastLine() throws {
+        let root = try tempRoot()
+        let config = makeConfig(root)
+        try "EVENT OTHER x".write(to: config.eventsLogURL, atomically: true, encoding: .utf8)
+        let writer = InboxWriter(inboxDir: config.inboxURL, eventsLog: config.eventsLogURL)
+
+        let first = try writer.write(AppshotPayload(png: nil, jpeg: nil, markdown: "a", meta: meta()))
+        let second = try writer.write(AppshotPayload(png: nil, jpeg: nil, markdown: "b", meta: meta()))
+
+        let log = try String(contentsOf: config.eventsLogURL, encoding: .utf8)
+        #expect(log == "EVENT OTHER x\nEVENT APPSHOT \(first.path)\nEVENT APPSHOT \(second.path)\n")
+    }
+}
