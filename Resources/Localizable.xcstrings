@@ -388,6 +388,23 @@
         }
       }
     },
+    "App switcher": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "App switcher"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "앱 전환기"
+          }
+        }
+      }
+    },
     "Apply crop": {
       "localizations": {
         "en": {
@@ -823,6 +840,23 @@
         }
       }
     },
+    "Close window": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Close window"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "윈도우 닫기"
+          }
+        }
+      }
+    },
     "Collapsed": {
       "localizations": {
         "en": {
@@ -915,6 +949,23 @@
           "stringUnit": {
             "state": "translated",
             "value": "스크린샷과 글자를 클립보드에 복사했어요."
+          }
+        }
+      }
+    },
+    "Copy": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Copy"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "복사"
           }
         }
       }
@@ -1191,6 +1242,23 @@
         }
       }
     },
+    "Cut": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cut"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "오려두기"
+          }
+        }
+      }
+    },
     "Destination": {
       "localizations": {
         "en": {
@@ -1447,6 +1515,40 @@
         }
       }
     },
+    "Find": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Find"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "찾기"
+          }
+        }
+      }
+    },
+    "Finder search": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Finder search"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Finder 검색"
+          }
+        }
+      }
+    },
     "Found %lld servers and %lld channels.": {
       "localizations": {
         "en": {
@@ -1459,6 +1561,23 @@
           "stringUnit": {
             "state": "translated",
             "value": "서버 %1$lld개와 채널 %2$lld개를 찾았어요."
+          }
+        }
+      }
+    },
+    "Full screen": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Full screen"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "전체 화면"
           }
         }
       }
@@ -1491,6 +1610,23 @@
           "stringUnit": {
             "state": "translated",
             "value": "초록"
+          }
+        }
+      }
+    },
+    "Hide app": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hide app"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "앱 가리기"
           }
         }
       }
@@ -1607,6 +1743,23 @@
         }
       }
     },
+    "Input source": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Input source"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "입력 소스 전환"
+          }
+        }
+      }
+    },
     "Install and Restart": {
       "localizations": {
         "en": {
@@ -1719,6 +1872,40 @@
         }
       }
     },
+    "Lock screen": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Lock screen"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "화면 잠금"
+          }
+        }
+      }
+    },
+    "Look up": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Look up"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "찾아보기"
+          }
+        }
+      }
+    },
     "Mail, Messages, AirDrop…": {
       "localizations": {
         "en": {
@@ -1763,6 +1950,23 @@
           "stringUnit": {
             "state": "translated",
             "value": "이미지와 함께 보낼 메시지 (선택)"
+          }
+        }
+      }
+    },
+    "Minimize": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Minimize"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "최소화"
           }
         }
       }
@@ -1843,6 +2047,23 @@
           "stringUnit": {
             "state": "translated",
             "value": "필요함"
+          }
+        }
+      }
+    },
+    "New": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "New"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "새로 만들기"
           }
         }
       }
@@ -2051,6 +2272,23 @@
           "stringUnit": {
             "state": "translated",
             "value": "숫자 단축키"
+          }
+        }
+      }
+    },
+    "Open": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Open"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "열기"
           }
         }
       }
@@ -2359,6 +2597,23 @@
         }
       }
     },
+    "Print": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Print"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "프린트"
+          }
+        }
+      }
+    },
     "Quick pick": {
       "localizations": {
         "en": {
@@ -2371,6 +2626,23 @@
           "stringUnit": {
             "state": "translated",
             "value": "바로 고르기"
+          }
+        }
+      }
+    },
+    "Quit": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Quit"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "종료"
           }
         }
       }
@@ -2663,6 +2935,23 @@
         }
       }
     },
+    "Save": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Save"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "저장"
+          }
+        }
+      }
+    },
     "Save Here": {
       "localizations": {
         "en": {
@@ -2759,6 +3048,23 @@
         }
       }
     },
+    "Screenshot": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Screenshot"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "스크린샷"
+          }
+        }
+      }
+    },
     "Screenshot failed: %@": {
       "localizations": {
         "en": {
@@ -2803,6 +3109,23 @@
           "stringUnit": {
             "state": "translated",
             "value": "앱, 동작, 서버, 채널, 스레드 찾기"
+          }
+        }
+      }
+    },
+    "Select all": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Select all"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "전체 선택"
           }
         }
       }
@@ -2979,6 +3302,23 @@
           "stringUnit": {
             "state": "translated",
             "value": "이 서버의 채널 보기"
+          }
+        }
+      }
+    },
+    "Spotlight": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Spotlight"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Spotlight"
           }
         }
       }
@@ -3683,6 +4023,23 @@
           "stringUnit": {
             "state": "translated",
             "value": "페이지 전체"
+          }
+        }
+      }
+    },
+    "Window cycling": {
+      "extractionState": "manual",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Window cycling"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "윈도우 순환"
           }
         }
       }
