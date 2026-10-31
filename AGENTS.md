@@ -10,7 +10,7 @@
 ## Commands
 
 ```sh
-./scripts/build.sh --install                          # signed Release build -> /Applications
+./scripts/build.sh --install                          # Release build -> /Applications (ad hoc unless a team is set)
 swift test --package-path Packages/AppshotCore        # unit tests
 swift scripts/make-icon.swift Resources/Assets.xcassets/AppIcon.appiconset
 open -n -W -a Appshot --args --render /tmp/p.png --scene picker --dark -AppleLanguages '(ko)'
