@@ -3175,6 +3175,22 @@
         }
       }
     },
+    "The download is not the size published with the release, so it was not installed.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The download is not the size published with the release, so it was not installed."
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "받은 파일이 릴리스에 올라온 크기와 달라서 설치하지 않았어요."
+          }
+        }
+      }
+    },
     "The downloaded app (%@) is not newer than this version, so it was not installed.": {
       "localizations": {
         "en": {
@@ -3187,6 +3203,22 @@
           "stringUnit": {
             "state": "translated",
             "value": "받은 앱(%@)이 지금 버전보다 새롭지 않아서 설치하지 않았어요."
+          }
+        }
+      }
+    },
+    "The downloaded app (%@) is not version %@ named by the release, so it was not installed.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The downloaded app (%1$@) is not version %2$@ named by the release, so it was not installed."
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "받은 앱(%1$@)이 릴리스에 적힌 %2$@ 버전이 아니어서 설치하지 않았어요."
           }
         }
       }
@@ -3283,6 +3315,22 @@
           "stringUnit": {
             "state": "translated",
             "value": "릴리스가 github.com/floweredao/appshot 밖을 가리켜서 설치하지 않았어요."
+          }
+        }
+      }
+    },
+    "The release's download is larger than Appshot accepts, so it was not installed.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The release's download is larger than Appshot accepts, so it was not installed."
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "릴리스의 다운로드 파일이 Appshot이 받을 수 있는 크기보다 커서 설치하지 않았어요."
           }
         }
       }
