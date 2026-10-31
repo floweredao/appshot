@@ -1,0 +1,14 @@
+# gitleaks reads this file from the repository root. Keep the default rules and skip build output,
+# which is git-ignored, never pushed, and slow to scan.
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Build output and caches"
+paths = [
+  '''(^|/)\.work/''',
+  '''(^|/)\.build/''',
+  '''(^|/)\.swiftpm/''',
+  '''(^|/)DerivedData/''',
+  '''\.xcodeproj/''',
+]
