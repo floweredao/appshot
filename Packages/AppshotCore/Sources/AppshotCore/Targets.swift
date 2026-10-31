@@ -156,19 +156,28 @@ public enum CommandTemplate {
     /// Quotes each value for where it lands: bare, inside the template's own '…' or "…", inside $( … ),
     /// or inside backticks, so a placeholder the user wrapped in quotes cannot be broken out of.
     /// Comments are copied as they are, so an apostrophe in one does not open a quote.
+    /// `$'…'` strings and `${…}` expansions are tracked too, and `${key}` fills the value like `{key}`.
     public static func shell(_ template: String, values: [String: String]) -> String {
         var output = ""
+        // `'` and `"` quotes, `$` for `$'…'`, `(` for `( … )` and `$( … )`, `{` for `${ … }`, and backticks.
         var open: [Character] = []
+        var bareDollar = false
         var index = template.startIndex
         while index < template.endIndex {
             let character = template[index]
             let next = template.index(after: index)
             let top = open.last
-            if character == "{", let close = template[index...].firstIndex(of: "}"),
-               let value = values[String(template[next..<close])] {
-                output += shellQuote(value, inside: top)
-                index = template.index(after: close)
-                continue
+            let dollar = bareDollar
+            bareDollar = false
+            if character == "{", let close = template[index...].firstIndex(of: "}") {
+                let key = String(template[next..<close])
+                if let value = values[key] {
+                    // Left in place, the `$` would make the value's opening quote start a `$'…'` string.
+                    if dollar { output.removeLast() }
+                    output += shellQuote(value, key: key, inside: open)
+                    index = template.index(after: close)
+                    continue
+                }
             }
             if top == "'" {
                 if character == "'" { open.removeLast() }
@@ -177,12 +186,14 @@ public enum CommandTemplate {
                 output.append(template[next])
                 index = template.index(after: next)
                 continue
+            } else if top == "$" {
+                if character == "'" { open.removeLast() }
             } else if top == "\"" {
                 if character == "\"" {
                     open.removeLast()
                 } else if character == "`" {
                     open.append(character)
-                } else if character == "(", output.last == "$" {
+                } else if character == "(" || character == "{", dollar {
                     open.append(character)
                 }
             } else if character == "#", startsWord(after: output.last) {
@@ -190,7 +201,12 @@ public enum CommandTemplate {
                 output.append(contentsOf: template[index..<end])
                 index = end
                 continue
-            } else if character == "'" || character == "\"" || character == "(" {
+            } else if character == "}", top == "{" {
+                open.removeLast()
+            } else if character == "'" {
+                // Inside a double-quoted `${ … }`, a single quote is a literal character.
+                if !insideQuotedExpansion(open) { open.append(dollar ? "$" : character) }
+            } else if character == "\"" || character == "(" || (character == "{" && dollar) {
                 open.append(character)
             } else if character == ")" {
                 if top == "(" { open.removeLast() }
@@ -198,19 +214,39 @@ public enum CommandTemplate {
                 if top == "`" { open.removeLast() } else { open.append(character) }
             }
             output.append(character)
+            bareDollar = character == "$" && top != "'" && top != "$"
             index = next
         }
         return output
     }
 
-    private static func shellQuote(_ value: String, inside open: Character?) -> String {
+    private static func shellQuote(_ value: String, key: String, inside open: [Character]) -> String {
+        if insideQuotedExpansion(open) {
+            // No quoting makes a value literal here: a single quote, backtick or `\"` inside a double-quoted
+            // `${ … }` is a syntax error, and a `}` ends the expansion. The shell reads the value from the
+            // environment instead, which yields exactly these characters without parsing them.
+            return "${\(environmentName(key))}"
+        }
         let quoted = shellQuote(value)
-        if open == "'" { return "'" + quoted + "'" }
-        if open == "\"" { return "\"" + quoted + "\"" }
-        guard open == "`" else { return quoted }
+        let top = open.last
+        if top == "'" { return "'" + quoted + "'" }
+        if top == "$" { return "'" + quoted + "$'" }
+        if top == "\"" { return "\"" + quoted + "\"" }
+        guard top == "`" else { return quoted }
         let backslashes = quoted.replacingOccurrences(of: "\\", with: "\\\\")
         let backticks = backslashes.replacingOccurrences(of: "`", with: "\\`")
         return backticks.replacingOccurrences(of: "$", with: "\\$")
+    }
+
+    /// Whether the innermost command context is a `${ … }` inside double quotes, such as `"${VAR:-…}"`.
+    private static func insideQuotedExpansion(_ open: [Character]) -> Bool {
+        var expansion = false
+        for context in open.reversed() {
+            if context == "(" || context == "`" { return false }
+            if context == "{" { expansion = true }
+            if context == "\"", expansion { return true }
+        }
+        return false
     }
 
     private static func startsWord(after previous: Character?) -> Bool {
@@ -225,8 +261,11 @@ public enum CommandTemplate {
     }
 
     public static func environment(_ values: [String: String]) -> [String: String] {
-        Dictionary(uniqueKeysWithValues: values.map { ("APPSHOT_\($0.key.uppercased())", $0.value) })
+        Dictionary(uniqueKeysWithValues: values.map { (environmentName($0.key), $0.value) })
     }
+
+    /// The variable `environment` puts a value in. `shell` points at it where no quoting can hold the value.
+    static func environmentName(_ key: String) -> String { "APPSHOT_\(key.uppercased())" }
 }
 
 public enum ClipboardText {
