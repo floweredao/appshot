@@ -2132,6 +2132,22 @@
         }
       }
     },
+    "No config file. It is optional: add one only to pin an assistant's Discord channels.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No config file. It is optional: add one only to pin an assistant's Discord channels."
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "설정 파일이 없어요. 없어도 돼요. 비서의 디스코드 채널을 고정하고 싶을 때만 만드세요."
+          }
+        }
+      }
+    },
     "No custom commands yet.": {
       "localizations": {
         "en": {
@@ -3431,22 +3447,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "명령이 실패했어요 (%d): %@"
-          }
-        }
-      }
-    },
-    "The config file does not exist yet.": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "The config file does not exist yet."
-          }
-        },
-        "ko": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "설정 파일이 아직 없어요."
           }
         }
       }

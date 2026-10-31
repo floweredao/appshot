@@ -39,10 +39,11 @@ public struct CatalogSource: Codable, Sendable, Equatable {
 /// Machine-specific settings. Lives outside the repository
 /// (default: ~/Library/Application Support/Appshot/config.json) so channel ids
 /// and local paths never ship with the source.
-/// Appshot only reads the assistant's state (to preselect the last channel); appshots reach the assistant
-/// as the owner's Discord message, never through files written into its state.
+/// The file is optional, and so is `stateDir`: Appshot only reads an assistant's state (to preselect the
+/// last channel) when one is set up, and appshots reach the assistant as the user's own Discord message,
+/// never through files written into its state.
 public struct AppshotConfig: Codable, Sendable, Equatable {
-    public var stateDir: String
+    public var stateDir: String?
     public var channels: [ChannelOption]
     public var fallbackChannel: String
     public var ownerInbox: String?
@@ -50,7 +51,7 @@ public struct AppshotConfig: Codable, Sendable, Equatable {
     public var catalog: CatalogSource?
 
     public init(
-        stateDir: String,
+        stateDir: String? = nil,
         channels: [ChannelOption],
         fallbackChannel: String,
         ownerInbox: String? = nil,
@@ -77,8 +78,16 @@ public struct AppshotConfig: Codable, Sendable, Equatable {
         return config
     }
 
+    /// Nil when the file does not exist, which is not an error: the config only adds assistant channels.
+    public static func loadIfPresent(from url: URL = defaultURL) throws -> AppshotConfig? {
+        do {
+            return try load(from: url)
+        } catch CocoaError.fileReadNoSuchFile {
+            return nil
+        }
+    }
+
     public func validate() throws {
-        if stateDir.isEmpty { throw ConfigError.missing("stateDir") }
         if channels.isEmpty { throw ConfigError.missing("channels") }
         if channels.contains(where: { $0.id.isEmpty || $0.key.isEmpty }) {
             throw ConfigError.missing("channels[].key/id")
@@ -94,31 +103,34 @@ public struct AppshotConfig: Codable, Sendable, Equatable {
         channels.first { $0.id == id }
     }
 
-    public var stateURL: URL { URL(filePath: Self.expand(stateDir), directoryHint: .isDirectory) }
-    public var ownerInboxURL: URL { resolve(ownerInbox, default: "owner-inbox.jsonl") }
-    public var handledIdsURL: URL { resolve(handledIds, default: "handled-ids.txt") }
+    /// Nil when no assistant state folder is set up.
+    public var stateURL: URL? {
+        guard let stateDir, !stateDir.isEmpty else { return nil }
+        return URL(filePath: Self.expand(stateDir), directoryHint: .isDirectory)
+    }
+    public var ownerInboxURL: URL? { resolve(ownerInbox, default: "owner-inbox.jsonl") }
+    public var handledIdsURL: URL? { resolve(handledIds, default: "handled-ids.txt") }
 
-    /// An empty override means the default file, not the state folder itself.
-    private func resolve(_ override: String?, default name: String) -> URL {
+    /// An empty override means the default file, not the state folder itself. A relative path needs `stateDir`.
+    private func resolve(_ override: String?, default name: String) -> URL? {
         var path = name
         if let override, !override.isEmpty { path = override }
         let expanded = Self.expand(path)
         if expanded.hasPrefix("/") { return URL(filePath: expanded) }
-        return stateURL.appending(path: expanded)
+        return stateURL?.appending(path: expanded)
     }
 
     static func expand(_ path: String) -> String {
         (path as NSString).expandingTildeInPath
     }
 
+    /// Only the required keys: `stateDir` and `catalog` are optional integrations described in the README.
     public static let template = AppshotConfig(
-        stateDir: "~/path/to/assistant/state",
         channels: [
             ChannelOption(key: "dm", label: "My DM", id: "DM_CHANNEL_ID", kind: "direct"),
             ChannelOption(key: "general", label: "#general", id: "GENERAL_CHANNEL_ID", kind: "channel"),
         ],
-        fallbackChannel: "general",
-        catalog: CatalogSource(cli: "/path/to/agent-discordbot", bot: "BOT_ALIAS", refreshMinutes: 15)
+        fallbackChannel: "general"
     )
 }
 
