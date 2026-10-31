@@ -231,6 +231,10 @@ open -n -W -a Appshot --stdout out.txt --args --appshot-now --note "이거 뭐�
 
 입력창 없이 맨 앞 창을 찍고 `디스코드 <보낼 곳>에 올렸어요.` 같은 결과 한 줄을 출력해요. `--channel`에는 `recent`(기본값), `channels`의 `key`, 보낼 곳 ID, 또는 `clipboard` 같은 대상을 줄 수 있어요. `--app <번들 ID>`는 그 앱의 맨 앞 창을 찍고, `--delay-ms`는 찍기 전에 기다릴 시간(기본값 500)이고, `--config <경로>`는 다른 설정 파일을 읽어요. 종료 코드는 2 설정 오류, 3 창 없음, 4 모르는 채널, 5 보내기·저장 실패예요.
 
+## 기여하기
+
+이슈와 풀 리퀘스트를 환영해요. [CONTRIBUTING.md](CONTRIBUTING.md)에 구조, 빌드와 테스트 방법, 그리고 이 저장소가 엄격하게 지키는 두 가지(모든 사용자 노출 문구를 영어와 한국어로, 개인 값은 저장소에 두지 않기)를 적어 뒀어요.
+
 ## 라이선스
 
 MIT. [LICENSE](LICENSE)를 보세요.
