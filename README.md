@@ -223,3 +223,4 @@ This captures the front window without showing the panel and prints a one-line r
 ## License
 
 MIT. See [LICENSE](LICENSE).
+x
