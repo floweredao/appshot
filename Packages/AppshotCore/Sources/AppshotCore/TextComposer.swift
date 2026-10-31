@@ -32,7 +32,25 @@ public enum TextComposer {
         let omitted = text.count - limit
         let head = text.prefix(headCount)
         let tail = text.suffix(tailCount)
-        return ("\(head)\n\n_(\(omitted) characters omitted)_\n\n\(tail)", omitted)
+        // A code block cut in half would swallow the marker, the tail, and whatever the caller appends.
+        let close = openFence(in: head).map { "\n" + $0 } ?? ""
+        let reopen = openFence(in: text.dropLast(tailCount)).map { $0 + "\n" } ?? ""
+        return ("\(head)\(close)\n\n_(\(omitted) characters omitted)_\n\n\(reopen)\(tail)", omitted)
+    }
+
+    /// The code fence that `text` leaves open, if any. Only a run at least as long as the opening one closes it.
+    static func openFence(in text: some StringProtocol) -> String? {
+        var open: String?
+        for line in text.split(separator: "\n", omittingEmptySubsequences: false) {
+            let run = line.prefix { $0 == "`" }
+            guard run.count >= 3 else { continue }
+            if let fence = open {
+                if run.count >= fence.count { open = nil }
+            } else {
+                open = String(run)
+            }
+        }
+        return open
     }
 
     /// A code fence longer than any backtick run in `text`, so a field that holds Markdown stays inside its block.
