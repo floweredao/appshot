@@ -245,6 +245,14 @@ public struct DestinationIndex: Sendable {
         byID[id] ?? aliases[id].flatMap { byID[$0] }
     }
 
+    /// The destination an appshot goes to by default: the last place the user sent one, unless that was the
+    /// assistant, in which case the assistant's current conversation (`resolved`). Nil when neither is known.
+    public func preferred(resolved: ResolvedChannel?, lastDestination: String?) -> Destination? {
+        if let lastDestination, let found = destination(id: lastDestination), !found.kind.isAssistant { return found }
+        guard let resolved else { return nil }
+        return destination(id: resolved.id) ?? Destination(id: resolved.id, name: resolved.label, kind: .thread)
+    }
+
     public func sections(recent: [String], favorites: [String] = [], recentLimit: Int = 5) -> [Section] {
         let favoriteItems = Self.unique(favorites.compactMap { destination(id: $0) })
         let favoriteIDs = Set(favoriteItems.map(\.id))
