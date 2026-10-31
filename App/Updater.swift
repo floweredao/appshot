@@ -7,6 +7,9 @@ enum UpdaterError: Error {
     case insecureResponse
     case unzipFailed
     case cannotReplace(String)
+    case tooLarge
+    case sizeMismatch
+    case versionMismatch(expected: String, actual: String)
 }
 
 @MainActor
@@ -29,6 +32,7 @@ final class Updater {
     private static let automaticKey = "updateAutomaticChecks"
     private static let lastCheckKey = "updateLastCheck"
     private static let notifiedKey = "updateNotifiedVersion"
+    nonisolated private static let maxDownloadSize = 100 * 1024 * 1024
 
     var automaticChecks: Bool {
         get {
@@ -147,20 +151,47 @@ final class Updater {
     /// Downloads the release zip and runs every check; returns the verified app inside a private work folder.
     nonisolated static func prepare(_ update: AvailableUpdate, currentVersion: String, replacing current: URL) async throws -> URL {
         guard UpdateCheck.isTrustedDownload(update.downloadURL) else { throw UpdateCheckError.untrustedURL(update.downloadURL.absoluteString) }
+        guard update.size <= maxDownloadSize else { throw UpdaterError.tooLarge }
         let work = FileManager.default.temporaryDirectory.appending(path: "Appshot-Update-\(UUID().uuidString)")
         try FileManager.default.createDirectory(at: work, withIntermediateDirectories: true)
         do {
             var request = URLRequest(url: update.downloadURL)
             request.setValue("Appshot/\(currentVersion)", forHTTPHeaderField: "User-Agent")
-            let (downloaded, response) = try await URLSession.shared.download(for: request)
-            try requireSecure(response)
             let zip = work.appending(path: UpdateCheck.assetName)
-            try FileManager.default.moveItem(at: downloaded, to: zip)
-            return try verifyArchive(zip, sha256: update.sha256, currentVersion: currentVersion, replacing: current, work: work)
+            try await download(request, to: zip, size: update.size)
+            let candidate = try verifyArchive(zip, sha256: update.sha256, currentVersion: currentVersion, replacing: current, work: work)
+            let downloaded = UpdateVerifier.bundleVersion(candidate) ?? ""
+            guard AppVersion(downloaded) == update.version else {
+                throw UpdaterError.versionMismatch(expected: update.version.description, actual: downloaded)
+            }
+            return candidate
         } catch {
             try? FileManager.default.removeItem(at: work)
             throw error
         }
+    }
+
+    /// Writes the zip to `file`, stopping as soon as the body runs past the size published with the release.
+    nonisolated private static func download(_ request: URLRequest, to file: URL, size: Int) async throws {
+        let (bytes, response) = try await URLSession.shared.bytes(for: request)
+        try requireSecure(response)
+        try Data().write(to: file)
+        let handle = try FileHandle(forWritingTo: file)
+        defer { try? handle.close() }
+        var chunk: [UInt8] = []
+        chunk.reserveCapacity(1 << 16)
+        var total = 0
+        for try await byte in bytes {
+            total += 1
+            guard total <= size else { throw UpdaterError.sizeMismatch }
+            chunk.append(byte)
+            if chunk.count == 1 << 16 {
+                try handle.write(contentsOf: chunk)
+                chunk.removeAll(keepingCapacity: true)
+            }
+        }
+        try handle.write(contentsOf: chunk)
+        guard total == size else { throw UpdaterError.sizeMismatch }
     }
 
     /// Checksum, unpack, bundle ID, team, designated requirement, and version, in that order.
@@ -202,6 +233,7 @@ final class Updater {
     }
 
     /// Swaps the bundle after this process exits, restoring the old copy if the move fails, then reopens Appshot.
+    /// If the old copy cannot be restored either, the log says where it was left.
     nonisolated private static func scheduleReplacement(of destination: URL, with candidate: URL, relaunch: Bool) throws {
         let script = """
         set -u
@@ -210,7 +242,9 @@ final class Updater {
         while kill -0 "$pid" 2>/dev/null; do sleep 0.2; done
         staging="$dest.update-$$"; backup="$dest.previous-$$"
         if /usr/bin/ditto "$src" "$staging" && mv "$dest" "$backup"; then
-          if mv "$staging" "$dest"; then rm -rf "$backup"; echo "$(date) updated $dest"; else mv "$backup" "$dest"; echo "$(date) swap failed; kept $dest"; fi
+          if mv "$staging" "$dest"; then rm -rf "$backup"; echo "$(date) updated $dest"
+          elif mv "$backup" "$dest"; then echo "$(date) swap failed; kept $dest"
+          else echo "$(date) swap failed and the old app could not be restored; it is at $backup"; fi
         else
           echo "$(date) could not stage the update; kept $dest"
         fi
@@ -263,6 +297,12 @@ final class Updater {
             return String(localized: "The download could not be unpacked, so it was not installed.")
         case UpdaterError.cannotReplace(let path):
             return String(localized: "Appshot cannot replace itself at \(path). Move Appshot to the Applications folder and try again.")
+        case UpdaterError.tooLarge:
+            return String(localized: "The release's download is larger than Appshot accepts, so it was not installed.")
+        case UpdaterError.sizeMismatch:
+            return String(localized: "The download is not the size published with the release, so it was not installed.")
+        case UpdaterError.versionMismatch(let expected, let actual):
+            return String(localized: "The downloaded app (\(actual)) is not version \(expected) named by the release, so it was not installed.")
         default:
             return error.localizedDescription
         }
