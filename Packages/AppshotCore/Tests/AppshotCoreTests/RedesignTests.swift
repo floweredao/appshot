@@ -135,6 +135,22 @@ import Testing
         #expect(Shortcut.bothSides(.command).knownConflict == nil)
     }
 
+    @Test func everyConflictNameIsTranslated() throws {
+        // The warning interpolates the name into a localized sentence, so the name needs its own entry.
+        let catalog = URL(filePath: #filePath).deletingLastPathComponent()
+            .appending(path: "../../../../Resources/Localizable.xcstrings").standardized
+        let json = try JSONSerialization.jsonObject(with: Data(contentsOf: catalog)) as? [String: Any]
+        let strings = json?["strings"] as? [String: Any] ?? [:]
+        for name in Shortcut.conflictNames.sorted() {
+            let localizations = (strings[name] as? [String: Any])?["localizations"] as? [String: Any]
+            for language in ["en", "ko"] {
+                let unit = (localizations?[language] as? [String: Any])?["stringUnit"] as? [String: Any]
+                let value = unit?["value"] as? String ?? ""
+                #expect(!value.isEmpty, "\(name) has no \(language) translation")
+            }
+        }
+    }
+
     @Test func doubleTapIgnoresChordWithKey() {
         var detector = DoubleTapDetector(side: .command)
         _ = detector.flagsChanged(cmd, at: 0)

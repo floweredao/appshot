@@ -61,14 +61,23 @@ public enum Shortcut: Codable, Sendable, Equatable {
         return symbols + key
     }
 
+    /// The English name of the macOS function that normally uses this shortcut. It is also the key of its
+    /// translation in the app's string catalog.
     public var knownConflict: String? {
         guard case .combo(let keyCode, let modifiers, _) = self else { return nil }
         let set = modifiers & ModifierSide.allIndependent
+        return Self.conflicts.first { $0.0 == keyCode && $0.1 == set }?.2
+    }
+
+    /// Every name `knownConflict` can return.
+    public static var conflictNames: Set<String> { Set(conflicts.map(\.2)) }
+
+    private static let conflicts: [(UInt16, UInt64, String)] = {
         let cmd = ModifierSide.command.independentMask
         let shift = ModifierSide.shift.independentMask
         let ctrl = ModifierSide.control.independentMask
         let opt = ModifierSide.option.independentMask
-        let table: [(UInt16, UInt64, String)] = [
+        return [
             (49, cmd, "Spotlight"),
             (49, cmd | opt, "Finder search"),
             (49, ctrl, "Input source"),
@@ -86,8 +95,7 @@ public enum Shortcut: Codable, Sendable, Equatable {
             (3, cmd | ctrl, "Full screen"),
             (2, cmd | ctrl, "Look up"),
         ]
-        return table.first { $0.0 == keyCode && $0.1 == set }?.2
-    }
+    }()
 }
 
 public struct DualModifierDetector: Sendable {
