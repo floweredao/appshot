@@ -5,12 +5,15 @@ public struct ChannelOption: Codable, Sendable, Hashable, Identifiable {
     public var label: String
     public var id: String
     public var kind: String?
+    /// Server ID for the Discord deep link, when the channel is not in the catalog (an archived thread, for example).
+    public var server: String?
 
-    public init(key: String, label: String, id: String, kind: String? = nil) {
+    public init(key: String, label: String, id: String, kind: String? = nil, server: String? = nil) {
         self.key = key
         self.label = label
         self.id = id
         self.kind = kind
+        self.server = server
     }
 }
 
@@ -28,7 +31,7 @@ public struct CatalogSource: Codable, Sendable, Equatable {
     }
 
     public var cacheURL: URL {
-        if let path { return URL(filePath: AppshotConfig.expand(path)) }
+        if let path, !path.isEmpty { return URL(filePath: AppshotConfig.expand(path)) }
         return FileManager.default.homeDirectoryForCurrentUser.appending(path: "Library/Caches/Appshot/discord-catalog.json")
     }
 }
@@ -36,31 +39,27 @@ public struct CatalogSource: Codable, Sendable, Equatable {
 /// Machine-specific settings. Lives outside the repository
 /// (default: ~/Library/Application Support/Appshot/config.json) so channel ids
 /// and local paths never ship with the source.
+/// Appshot only reads the assistant's state (to preselect the last channel); appshots reach the assistant
+/// as the owner's Discord message, never through files written into its state.
 public struct AppshotConfig: Codable, Sendable, Equatable {
     public var stateDir: String
-    public var inboxDir: String
     public var channels: [ChannelOption]
     public var fallbackChannel: String
-    public var eventsLog: String?
     public var ownerInbox: String?
     public var handledIds: String?
     public var catalog: CatalogSource?
 
     public init(
         stateDir: String,
-        inboxDir: String,
         channels: [ChannelOption],
         fallbackChannel: String,
-        eventsLog: String? = nil,
         ownerInbox: String? = nil,
         handledIds: String? = nil,
         catalog: CatalogSource? = nil
     ) {
         self.stateDir = stateDir
-        self.inboxDir = inboxDir
         self.channels = channels
         self.fallbackChannel = fallbackChannel
-        self.eventsLog = eventsLog
         self.ownerInbox = ownerInbox
         self.handledIds = handledIds
         self.catalog = catalog
@@ -80,7 +79,6 @@ public struct AppshotConfig: Codable, Sendable, Equatable {
 
     public func validate() throws {
         if stateDir.isEmpty { throw ConfigError.missing("stateDir") }
-        if inboxDir.isEmpty { throw ConfigError.missing("inboxDir") }
         if channels.isEmpty { throw ConfigError.missing("channels") }
         if channels.contains(where: { $0.id.isEmpty || $0.key.isEmpty }) {
             throw ConfigError.missing("channels[].key/id")
@@ -97,12 +95,13 @@ public struct AppshotConfig: Codable, Sendable, Equatable {
     }
 
     public var stateURL: URL { URL(filePath: Self.expand(stateDir), directoryHint: .isDirectory) }
-    public var inboxURL: URL { URL(filePath: Self.expand(inboxDir), directoryHint: .isDirectory) }
-    public var eventsLogURL: URL { resolve(eventsLog ?? "events.log") }
-    public var ownerInboxURL: URL { resolve(ownerInbox ?? "owner-inbox.jsonl") }
-    public var handledIdsURL: URL { resolve(handledIds ?? "handled-ids.txt") }
+    public var ownerInboxURL: URL { resolve(ownerInbox, default: "owner-inbox.jsonl") }
+    public var handledIdsURL: URL { resolve(handledIds, default: "handled-ids.txt") }
 
-    private func resolve(_ path: String) -> URL {
+    /// An empty override means the default file, not the state folder itself.
+    private func resolve(_ override: String?, default name: String) -> URL {
+        var path = name
+        if let override, !override.isEmpty { path = override }
         let expanded = Self.expand(path)
         if expanded.hasPrefix("/") { return URL(filePath: expanded) }
         return stateURL.appending(path: expanded)
@@ -114,7 +113,6 @@ public struct AppshotConfig: Codable, Sendable, Equatable {
 
     public static let template = AppshotConfig(
         stateDir: "~/path/to/assistant/state",
-        inboxDir: "~/path/to/assistant/inbox/appshot",
         channels: [
             ChannelOption(key: "dm", label: "My DM", id: "DM_CHANNEL_ID", kind: "direct"),
             ChannelOption(key: "general", label: "#general", id: "GENERAL_CHANNEL_ID", kind: "channel"),
