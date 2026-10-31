@@ -333,7 +333,7 @@ final class AppController {
                 ? String(localized: "No channels found. Open the Discord window (not just the menu bar icon) and try again.")
                 : String(localized: "Found \(servers) servers and \(found.count) channels.")
             guard appChannels.merge(found) else { return }
-            try? appChannels.save(to: Self.appChannelsURL)
+            saveAppChannels()
             targetsRevision += 1
             if let model = activeModel { model.index = destinationIndex(config) }
         }
@@ -345,6 +345,16 @@ final class AppController {
         demoTargets = apps
         demoVisibility = visibility
         accessibilityAllowed = true
+    }
+
+    private func saveAppChannels() {
+        do {
+            try appChannels.save(to: Self.appChannelsURL)
+        } catch {
+            let message = String(localized: "Could not save the Discord channel list: \(error.localizedDescription)")
+            appChannelsResult = message
+            lastResult = message
+        }
     }
 
     static var appChannelsURL: URL {
@@ -362,7 +372,7 @@ final class AppController {
             }.value
             appChannelsReading = false
             guard appChannels.merge(found) else { return }
-            try? appChannels.save(to: Self.appChannelsURL)
+            saveAppChannels()
             targetsRevision += 1
             if let model = activeModel { model.index = destinationIndex(config) }
         }

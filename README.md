@@ -201,13 +201,21 @@ The preselected destination is the channel of the last message your assistant ha
 
 ## Build from source
 
-You need Xcode 16 or later (Swift 6 and the macOS 15 SDK), XcodeGen, and an Apple Development signing certificate.
+You need Xcode 16 or later (Swift 6 and the macOS 15 SDK) and XcodeGen. A signing certificate is optional.
 
 ```sh
 brew install xcodegen
-echo 'DEVELOPMENT_TEAM = <your team id>' > Config/Local.xcconfig   # git-ignored
 ./scripts/build.sh --install                                         # -> /Applications/Appshot.app
 swift test --package-path Packages/AppshotCore                       # unit tests
+```
+
+Without a certificate the app is signed ad hoc, which needs no Apple developer account. It runs, but macOS treats every rebuild as a different app: Screen Recording and Accessibility have to be allowed again after each build, and **Install and Restart** refuses a GitHub release, because that release is signed by someone else. Download the release yourself to update.
+
+With an Apple Development certificate the app keeps one identity:
+
+```sh
+echo 'DEVELOPMENT_TEAM = <your team id>' > Config/Local.xcconfig   # git-ignored
+./scripts/build.sh --install
 ```
 
 Signing with the same certificate every time keeps the permissions across updates.
@@ -219,6 +227,10 @@ open -n -W -a Appshot --stdout out.txt --args --appshot-now --note "what is this
 ```
 
 This captures the front window without showing the panel and prints a one-line result, such as `Posted to <destination> in Discord.`. `--channel` takes `recent` (the default), a `key` from `channels`, a destination ID, or a target such as `clipboard`. `--app <bundle ID>` captures that app's front window instead, `--delay-ms` waits before capturing (default 500), and `--config <path>` reads a different config file. Exit codes: 2 config error, 3 no window, 4 unknown channel, 5 send or write failure.
+
+## Contributing
+
+Issues and pull requests are welcome. [CONTRIBUTING.md](CONTRIBUTING.md) covers the layout, how to build and test, and the two rules this repository is strict about: every user-visible string in English and Korean, and no personal values in the repository.
 
 ## License
 

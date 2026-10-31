@@ -204,13 +204,21 @@ Codex는 이렇게 해요. OpenAI 문서에 따르면 Appshots는 손쉬운 사�
 
 ## 소스로 빌드
 
-Xcode 16 이상(Swift 6, macOS 15 SDK), XcodeGen, Apple Development 서명 인증서가 필요해요.
+Xcode 16 이상(Swift 6, macOS 15 SDK)과 XcodeGen이 필요해요. 서명 인증서는 없어도 돼요.
 
 ```sh
 brew install xcodegen
-echo 'DEVELOPMENT_TEAM = <팀 ID>' > Config/Local.xcconfig   # git에 안 들어가요
 ./scripts/build.sh --install                                # -> /Applications/Appshot.app
 swift test --package-path Packages/AppshotCore              # 단위 테스트
+```
+
+인증서가 없으면 앱을 ad-hoc으로 서명해요. Apple 개발자 계정이 없어도 되고 앱도 잘 돌아가지만, macOS는 다시 빌드할 때마다 다른 앱으로 봐요. 그래서 빌드할 때마다 화면 기록과 손쉬운 사용을 다시 허용해야 하고, **설치하고 다시 열기**는 GitHub 릴리스를 거부해요. 서명한 주체가 다르기 때문이에요. 업데이트는 릴리스를 직접 받아서 하세요.
+
+Apple Development 인증서가 있으면 앱이 하나의 신원을 유지해요:
+
+```sh
+echo 'DEVELOPMENT_TEAM = <팀 ID>' > Config/Local.xcconfig   # git에 안 들어가요
+./scripts/build.sh --install
 ```
 
 늘 같은 인증서로 서명해야 업데이트한 뒤에도 권한이 유지돼요.
@@ -222,6 +230,10 @@ open -n -W -a Appshot --stdout out.txt --args --appshot-now --note "이거 뭐�
 ```
 
 입력창 없이 맨 앞 창을 찍고 `디스코드 <보낼 곳>에 올렸어요.` 같은 결과 한 줄을 출력해요. `--channel`에는 `recent`(기본값), `channels`의 `key`, 보낼 곳 ID, 또는 `clipboard` 같은 대상을 줄 수 있어요. `--app <번들 ID>`는 그 앱의 맨 앞 창을 찍고, `--delay-ms`는 찍기 전에 기다릴 시간(기본값 500)이고, `--config <경로>`는 다른 설정 파일을 읽어요. 종료 코드는 2 설정 오류, 3 창 없음, 4 모르는 채널, 5 보내기·저장 실패예요.
+
+## 기여하기
+
+이슈와 풀 리퀘스트를 환영해요. [CONTRIBUTING.md](CONTRIBUTING.md)에 구조, 빌드와 테스트 방법, 그리고 이 저장소가 엄격하게 지키는 두 가지(모든 사용자 노출 문구를 영어와 한국어로, 개인 값은 저장소에 두지 않기)를 적어 뒀어요.
 
 ## 라이선스
 

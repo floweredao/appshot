@@ -36,10 +36,36 @@ import Testing
         }
     }
 
-    private func runShell(_ script: String, in directory: URL) throws -> String {
+    @Test func dollarFormsKeepCapturedTextLiteral() throws {
+        // `${note}`, ANSI-C `$'…'` strings, and double-quoted `${…}` defaults each change how the shell reads quotes.
+        let payloads = ["$(touch pwned)", "`touch pwned`", "\\'; touch pwned; #", "\"; touch pwned; \"", "a}b\\c"]
+        let cases: [(template: String, before: String, after: String)] = [
+            ("printf %s ${note}", "", ""),
+            ("printf %s \"${note}\"", "", ""),
+            ("printf %s $'it\\'s {note}'", "it's ", ""),
+            ("printf %s \"${X:-{note}}\"", "", ""),
+            ("printf %s ${X:-{note}}", "", ""),
+        ]
+        for item in cases {
+            for payload in payloads {
+                let dir = FileManager.default.temporaryDirectory.appending(path: "appshot-shell-\(UUID().uuidString)")
+                try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+                defer { try? FileManager.default.removeItem(at: dir) }
+                let script = CommandTemplate.shell(item.template, values: ["note": payload])
+                let output = try runShell(script, in: dir, values: ["note": payload])
+                let ran = FileManager.default.fileExists(atPath: dir.appending(path: "pwned").path)
+                #expect(!ran, "\(script)")
+                #expect(output == item.before + payload + item.after, "\(script)")
+            }
+        }
+    }
+
+    /// Runs the script the way `TargetDelivery` does: `/bin/sh -c` with the values also in the environment.
+    private func runShell(_ script: String, in directory: URL, values: [String: String] = [:]) throws -> String {
         let process = Process()
         process.executableURL = URL(filePath: "/bin/sh")
         process.arguments = ["-c", script]
+        process.environment = ProcessInfo.processInfo.environment.merging(CommandTemplate.environment(values)) { $1 }
         process.currentDirectoryURL = directory
         let output = Pipe()
         process.standardOutput = output
