@@ -1,5 +1,5 @@
 #!/bin/sh
-# Pre-push gate: secrets (gitleaks) plus personal-data scan over tracked files, history, and commit identities.
+# Pre-push gate: secrets (gitleaks) plus personal-data scan over tracked files and unpushed commits and their identities.
 # Personal strings to block live outside the repo, one per line, in $APPSHOT_PRIVACY_PATTERNS
 # (default: .work/privacy-patterns.txt, which is git-ignored).
 set -eu
@@ -20,10 +20,12 @@ rm -f .work-gitleaks.log
 images=$(git ls-files | grep -Ei '\.(png|jpe?g|heic|gif|tiff?|mov|mp4)$' | grep -Ev '^(docs/[^/]+\.png|Resources/Assets\.xcassets/AppIcon\.appiconset/[^/]+\.png)$' || true)
 [ -z "$images" ] || report "images outside docs/ and the app icon: $images"
 
-history=$(git log --all -p --format='%an <%ae> %cn <%ce>%n%B' 2>/dev/null; git ls-files -z | xargs -0 cat 2>/dev/null)
+# Commits already on a remote are public and cannot be rewritten, so only commits not yet pushed are
+# scanned (all of history when there is no remote). Tracked files are always scanned in full.
+history=$(git log --all --not --remotes -p --format='%an <%ae> %cn <%ce>%n%B' 2>/dev/null; git ls-files -z | xargs -0 cat 2>/dev/null)
 
-# Email addresses other than GitHub noreply.
-emails=$(printf '%s' "$history" | grep -Eo '[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}' | grep -v 'users.noreply.github.com$' | grep -Ev '@[0-9]x\.(png|jpe?g|pdf)$' | sort -u || true)
+# Email addresses other than GitHub noreply (including GitHub's own committer identity on merge commits).
+emails=$(printf '%s' "$history" | grep -Eo '[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}' | grep -Ev '(users\.noreply\.github\.com|^noreply@github\.com)$' | grep -Ev '@[0-9]x\.(png|jpe?g|pdf)$' | sort -u || true)
 [ -z "$emails" ] || report "email addresses: $emails"
 
 # Absolute home paths (a placeholder like /Users/<you> is allowed).
