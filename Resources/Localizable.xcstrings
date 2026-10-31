@@ -1063,6 +1063,22 @@
         }
       }
     },
+    "Could not save the Discord channel list: %@": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Could not save the Discord channel list: %@"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "디스코드 채널 목록을 저장하지 못했어요: %@"
+          }
+        }
+      }
+    },
     "Could not save: %@": {
       "localizations": {
         "en": {
@@ -1843,6 +1859,22 @@
           "stringUnit": {
             "state": "translated",
             "value": "새 명령"
+          }
+        }
+      }
+    },
+    "No app opened the %@: URL.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No app opened the %@: URL."
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@: URL을 여는 앱이 없어요."
           }
         }
       }
