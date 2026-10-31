@@ -31,8 +31,8 @@ private func inboxLine(_ id: String, _ channel: String, _ text: String) -> Strin
         let root = try tempRoot()
         let config = makeConfig(root)
         try [inboxLine("1", "200", "a"), inboxLine("2", "999", "b"), inboxLine("3", "300", "c")]
-            .joined(separator: "\n").write(to: config.ownerInboxURL, atomically: true, encoding: .utf8)
-        try "1\n2\n\n".write(to: config.handledIdsURL, atomically: true, encoding: .utf8)
+            .joined(separator: "\n").write(to: config.ownerInboxURL!, atomically: true, encoding: .utf8)
+        try "1\n2\n\n".write(to: config.handledIdsURL!, atomically: true, encoding: .utf8)
 
         let resolved = ChannelResolver(config: config).resolve()
         #expect(resolved == ResolvedChannel(id: "999", label: "thread …999", source: .lastHandled, lastMessage: "b"))
@@ -42,8 +42,8 @@ private func inboxLine(_ id: String, _ channel: String, _ text: String) -> Strin
         let root = try tempRoot()
         let config = makeConfig(root)
         try [inboxLine("1", "200", "a"), "not json", inboxLine("3", "300", "c")]
-            .joined(separator: "\n").write(to: config.ownerInboxURL, atomically: true, encoding: .utf8)
-        try "42\n".write(to: config.handledIdsURL, atomically: true, encoding: .utf8)
+            .joined(separator: "\n").write(to: config.ownerInboxURL!, atomically: true, encoding: .utf8)
+        try "42\n".write(to: config.handledIdsURL!, atomically: true, encoding: .utf8)
 
         let resolved = ChannelResolver(config: config).resolve()
         #expect(resolved.id == "300")
@@ -65,8 +65,8 @@ private func inboxLine(_ id: String, _ channel: String, _ text: String) -> Strin
         let config = makeConfig(root)
         let early = inboxLine("1", "200", String(repeating: "x", count: 400))
         try [early, inboxLine("2", "100", "late")].joined(separator: "\n")
-            .write(to: config.ownerInboxURL, atomically: true, encoding: .utf8)
-        try "1\n".write(to: config.handledIdsURL, atomically: true, encoding: .utf8)
+            .write(to: config.ownerInboxURL!, atomically: true, encoding: .utf8)
+        try "1\n".write(to: config.handledIdsURL!, atomically: true, encoding: .utf8)
 
         let resolved = ChannelResolver(config: config, tailBytes: 120).resolve()
         #expect(resolved.id == "100")
@@ -78,9 +78,9 @@ private func inboxLine(_ id: String, _ channel: String, _ text: String) -> Strin
         let config = makeConfig(root)
         let early = inboxLine("1", "300", "early")
         let late = inboxLine("2", "200", "late")
-        try "2\n".write(to: config.handledIdsURL, atomically: true, encoding: .utf8)
+        try "2\n".write(to: config.handledIdsURL!, atomically: true, encoding: .utf8)
         for trailer in ["", "\n"] {
-            try (early + "\n" + late + trailer).write(to: config.ownerInboxURL, atomically: true, encoding: .utf8)
+            try (early + "\n" + late + trailer).write(to: config.ownerInboxURL!, atomically: true, encoding: .utf8)
             let resolved = ChannelResolver(config: config, tailBytes: late.utf8.count + trailer.utf8.count).resolve()
             #expect(resolved == ResolvedChannel(id: "200", label: "#coding", source: .lastHandled, lastMessage: "late"), "\(trailer.debugDescription)")
         }
@@ -100,8 +100,8 @@ private func inboxLine(_ id: String, _ channel: String, _ text: String) -> Strin
             fallbackChannel: "g", ownerInbox: "/abs/owner.jsonl"
         )
         let home = FileManager.default.homeDirectoryForCurrentUser.path
-        #expect(config.handledIdsURL.path == "\(home)/s/handled-ids.txt")
-        #expect(config.ownerInboxURL.path == "/abs/owner.jsonl")
+        #expect(config.handledIdsURL?.path == "\(home)/s/handled-ids.txt")
+        #expect(config.ownerInboxURL?.path == "/abs/owner.jsonl")
     }
 
     @Test func oldConfigWithInboxKeysStillLoads() throws {
@@ -109,6 +109,37 @@ private func inboxLine(_ id: String, _ channel: String, _ text: String) -> Strin
         let config = try JSONDecoder().decode(AppshotConfig.self, from: Data(json.utf8))
         try config.validate()
         #expect(config.channels.map(\.id) == ["1"])
+    }
+
+    @Test func configWithoutStateDirLoadsAndUsesTheFallback() throws {
+        let root = try tempRoot()
+        let url = root.appending(path: "config.json")
+        try #"{"channels":[{"key":"dm","label":"My DM","id":"1"}],"fallbackChannel":"dm"}"#
+            .write(to: url, atomically: true, encoding: .utf8)
+
+        let config = try AppshotConfig.load(from: url)
+        #expect(config.ownerInboxURL == nil)
+        #expect(config.handledIdsURL == nil)
+        #expect(ChannelResolver(config: config).resolve() == ResolvedChannel(id: "1", label: "My DM", source: .fallback, lastMessage: nil))
+    }
+
+    @Test func aMissingConfigFileIsNoConfigNotAnError() throws {
+        let root = try tempRoot()
+        #expect(try AppshotConfig.loadIfPresent(from: root.appending(path: "config.json")) == nil)
+
+        let broken = root.appending(path: "broken.json")
+        try "{".write(to: broken, atomically: true, encoding: .utf8)
+        #expect(throws: (any Error).self) { try AppshotConfig.loadIfPresent(from: broken) }
+    }
+
+    @Test func templateHoldsNoPlaceholderPathsAndStillLoads() throws {
+        let template = AppshotConfig.template
+        #expect(template.stateDir == nil)
+        #expect(template.catalog == nil)
+        let data = try JSONEncoder().encode(template)
+        let json = try #require(String(data: data, encoding: .utf8))
+        #expect(!json.contains("stateDir") && !json.contains("catalog"))
+        try JSONDecoder().decode(AppshotConfig.self, from: data).validate()
     }
 
     @Test func emptyOverridesUseDefaultFilesAndUnknownKeysAreIgnored() throws {
@@ -122,8 +153,8 @@ private func inboxLine(_ id: String, _ channel: String, _ text: String) -> Strin
         try json.write(to: url, atomically: true, encoding: .utf8)
 
         let config = try AppshotConfig.load(from: url)
-        #expect(config.ownerInboxURL.path == "/srv/appshot/state/owner-inbox.jsonl")
-        #expect(config.handledIdsURL.path == "/srv/appshot/state/handled-ids.txt")
+        #expect(config.ownerInboxURL?.path == "/srv/appshot/state/owner-inbox.jsonl")
+        #expect(config.handledIdsURL?.path == "/srv/appshot/state/handled-ids.txt")
         #expect(config.catalog?.cacheURL == CatalogSource(cli: "/bin/true").cacheURL)
     }
 }
@@ -152,7 +183,7 @@ private func inboxLine(_ id: String, _ channel: String, _ text: String) -> Strin
         #expect(names == ["meta.json", "shot.jpg", "shot.png", "text.md"])
         let siblings = try FileManager.default.contentsOfDirectory(atPath: inbox.path)
         #expect(siblings == [folder.lastPathComponent])
-        #expect(try FileManager.default.contentsOfDirectory(atPath: config.stateURL.path).isEmpty)
+        #expect(try FileManager.default.contentsOfDirectory(atPath: try #require(config.stateURL).path).isEmpty)
         let decoded = try JSONDecoder().decode(AppshotMeta.self, from: Data(contentsOf: folder.appending(path: "meta.json")))
         #expect(decoded.files == ["screenshot": "shot.png", "preview": "shot.jpg", "text": "text.md"])
         #expect(decoded.note == "look")

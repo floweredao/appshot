@@ -47,7 +47,7 @@ public struct ChannelResolver: Sendable {
     }
 
     private func lastHandledID() -> String? {
-        guard let data = try? Data(contentsOf: config.handledIdsURL) else { return nil }
+        guard let url = config.handledIdsURL, let data = try? Data(contentsOf: url) else { return nil }
         // One byte that is not UTF-8, such as from a torn write, must not hide every ID in the file.
         let text = String(decoding: data, as: UTF8.self)
         return text.split(whereSeparator: \.isNewline)
@@ -56,7 +56,7 @@ public struct ChannelResolver: Sendable {
     }
 
     private func readInboxTail() -> [Record] {
-        guard let handle = try? FileHandle(forReadingFrom: config.ownerInboxURL) else { return [] }
+        guard let url = config.ownerInboxURL, let handle = try? FileHandle(forReadingFrom: url) else { return [] }
         defer { try? handle.close() }
         guard let size = try? handle.seekToEnd() else { return [] }
         // One byte before the window shows whether the window starts on a line boundary.

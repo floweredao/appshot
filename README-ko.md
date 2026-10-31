@@ -31,7 +31,7 @@
 - **진짜 보낼 곳.** 디스코드 서버·채널·진행 중 스레드를 이름 그대로 고르고 찾을 수 있어요. 최근에 쓴 곳은 맨 위에 와요. DM에도 "내 DM"처럼 알아보기 쉬운 이름을 붙일 수 있어요.
 - **키보드로 다 돼요.** ↩ 보내기, ⌘K 보낼 곳 목록, ⌘E 스크린샷 수정, ↑↓ 이동, ⌘D 즐겨찾기, ⌘1~⌘9 바로 고르기, esc 뒤로·취소.
 - **영어·한국어.** 맥 시스템 언어를 따라가요.
-- **보낸 것이 채널에 보여요.** 디스코드 채널로 보내면 디스코드 앱을 통해 내 계정으로 스크린샷과 메모가 그 채널에 올라가요. 비서에게도 폴더를 넘겨서 비서가 그 메시지에 답할 수 있어요. 앱 안에 토큰이 없어요. 앱이 직접 하는 네트워크 통신은 GitHub에서 업데이트를 확인하는 것뿐이고, 이것도 끌 수 있어요. 그 밖에는 디스코드, 웹훅, 붙여 넣을 앱처럼 내가 고른 대상으로만 나가요.
+- **보낸 것이 채널에 보여요.** 디스코드 채널로 보내면 디스코드 앱을 통해 내 계정으로 스크린샷과 메모가 그 채널에 올라가요. 그래서 그 채널에 있는 비서 봇이 그 메시지에 답할 수 있어요. 앱 안에 토큰이 없어요. 앱이 직접 하는 네트워크 통신은 GitHub에서 업데이트를 확인하는 것뿐이고, 이것도 끌 수 있어요. 그 밖에는 디스코드, 웹훅, 붙여 넣을 앱처럼 내가 고른 대상으로만 나가요.
 
 <p align="center"><img src="docs/picker-ko-light.png" width="720" alt="보낼 곳 고르기, 라이트 모드"></p>
 <p align="center"><img src="docs/picker-ko-dark.png" width="720" alt="보낼 곳 고르기, 다크 모드"></p>
@@ -173,26 +173,47 @@ Codex는 이렇게 해요. OpenAI 문서에 따르면 Appshots는 손쉬운 사�
 
 ## 설정 파일
 
-내 컴퓨터만의 값은 저장소에 넣지 않아요. Appshot은 `~/Library/Application Support/Appshot/config.json`을 읽어요. **설정… › 설정 파일**에서 **템플릿 만들기**를 누르면 아래 예시를 그 자리에 만들어 줘요.
+설정 파일은 없어도 돼요. 없으면 클립보드, 폴더, 공유 메뉴, 추가한 앱, 내 명령, 디스코드 앱에서 읽은 채널로 보낼 수 있어요. 비서 봇이 있는 디스코드 채널을 목록 맨 위에 고정하고 싶을 때만 만드세요.
+
+내 컴퓨터만의 값은 저장소에 넣지 않아요. Appshot은 `~/Library/Application Support/Appshot/config.json`을 읽어요. **설정… › 설정 파일**에서 **템플릿 만들기**를 누르면 아래 예시를 그 자리에 만들어 줘요. ID는 내 것으로 바꾸세요(디스코드에서 개발자 모드를 켜고 **채널 ID 복사하기**).
 
 ```json
 {
-  "stateDir": "~/path/to/assistant/state",
   "channels": [
     { "key": "dm", "label": "내 DM", "id": "DM_CHANNEL_ID", "kind": "direct" },
     { "key": "general", "label": "#general", "id": "GENERAL_CHANNEL_ID", "kind": "channel" }
   ],
-  "fallbackChannel": "general",
-  "catalog": { "cli": "/path/to/agent-discordbot", "bot": "BOT_ALIAS", "refreshMinutes": 15 }
+  "fallbackChannel": "general"
 }
 ```
 
-- `stateDir`: 비서의 `owner-inbox.jsonl`, `handled-ids.txt`가 있는 폴더예요. 마지막 채널을 미리 고르려고 읽기만 하고, 쓰지는 않아요. 각 파일은 `ownerInbox`, `handledIds`로 따로 정할 수 있어요(절대 경로, 또는 `stateDir` 기준 상대 경로).
 - `channels`: 꼭 있어야 해요. 목록 맨 위에 고정할 곳이에요(예: 내 DM). 항목마다 `key`와 `id`가 필요하고, `kind`는 `direct`(기본값), `channel`, `thread` 가운데 하나예요.
-- `catalog`: 선택 항목이에요. 이 CLI(`server list`, `channel list`, `thread list`, `bot`이 있으면 `--bot <bot>`도 붙여서)를 `refreshMinutes`분(기본값 15)마다 돌려 서버·채널·진행 중 스레드를 `~/Library/Caches/Appshot/discord-catalog.json`에, `path`를 정했으면 그 파일에 담아 둬요. 봇 토큰은 그 CLI 안에만 있어요.
-- `fallbackChannel`: 꼭 있어야 해요. `channels`에 있는 `key` 하나로, 최근 대화를 못 찾을 때 쓸 곳이에요.
+- `fallbackChannel`: 꼭 있어야 해요. `channels`에 있는 `key` 하나로, 더 최근 것을 모를 때 골라 둘 곳이에요.
+- `catalog`: 선택 연동이에요. [봇 목록](#봇-목록)을 보세요.
+- `stateDir`: 선택 연동이에요. [비서 상태 파일](#비서-상태-파일)을 보세요.
 
-처음 골라져 있는 곳은 비서가 마지막으로 처리한 메시지의 채널이에요. `handled-ids.txt`의 마지막 ID로 `owner-inbox.jsonl`에서 그 메시지를 찾아요. 그 ID가 없으면 `owner-inbox.jsonl`의 마지막 줄 채널을, 둘 다 없으면 `fallbackChannel`을 써요. 마지막으로 보낸 곳이 비서가 아니었다면(예: 클립보드나 앱) 그곳이 대신 골라져 있어요.
+처음 골라져 있는 곳은 마지막으로 앱샷을 보낸 곳이에요. 그곳이 비서 채널이었거나 아직 보낸 적이 없으면, [비서 상태 파일](#비서-상태-파일)을 정해 둔 경우 비서가 지금 대화 중인 채널을, 아니면 `fallbackChannel`을 골라 둬요.
+
+### 봇 목록
+
+비서 봇이 볼 수 있는 서버·채널·진행 중 스레드를 모두 보이게 하려면, 봇 토큰으로 그것들을 읽는 명령줄 도구를 `catalog`에 적으세요.
+
+```json
+"catalog": { "cli": "/opt/homebrew/bin/agent-discordbot", "bot": "my-bot", "refreshMinutes": 15 }
+```
+
+Appshot은 [agent-messenger](https://github.com/agent-messenger/agent-messenger)의 `agent-discordbot`으로 확인했어요(`npm install -g agent-messenger`를 하고, 그 도구의 `auth` 명령으로 봇을 로그인하세요). `server list`, `channel list --server <id>`, `thread list --server <id>`, `whoami`, `message list <channel> --limit <n>`을 돌리고(`bot`이 있으면 `--bot <bot>`도 붙여서) 나온 JSON을 읽어요. 같은 명령과 출력을 주는 도구라면 무엇이든 돼요. 서버·채널·스레드는 `refreshMinutes`분(기본값 15)마다 `~/Library/Caches/Appshot/discord-catalog.json`에, `path`를 정했으면 그 파일에 담아 둬요. 봇 토큰은 그 도구 안에만 있어요.
+
+### 비서 상태 파일
+
+비서가 받은 디스코드 메시지를 파일로 남긴다면, Appshot이 비서가 지금 대화 중인 채널을 미리 골라 둘 수 있어요. `stateDir`에 아래 두 파일이 있는 폴더를 적으세요. Appshot은 읽기만 하고, 거기에 쓰지 않아요.
+
+| 파일 | 형식 |
+| --- | --- |
+| `owner-inbox.jsonl` (또는 `ownerInbox`에 적은 경로) | 받은 메시지마다 JSON 한 줄, 오래된 것부터: `{"id": "<메시지 ID>", "channel": "<채널 ID>", "text": "…"}`. 다른 키는 무시해요. |
+| `handled-ids.txt` (또는 `handledIds`에 적은 경로) | 한 줄에 메시지 ID 하나. 마지막 줄이 비서가 가장 최근에 처리한 메시지예요. |
+
+`ownerInbox`, `handledIds`에는 절대 경로나 `stateDir` 기준 상대 경로를 적어요. Appshot은 마지막으로 처리한 메시지의 채널을, 없으면 마지막으로 받은 메시지의 채널을, 그것도 없으면 `fallbackChannel`을 골라요.
 
 ## 개인 정보
 
