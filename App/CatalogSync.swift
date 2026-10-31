@@ -21,8 +21,8 @@ enum CatalogSync {
             var channels: [String: Data] = [:]
             var threads: [String: Data] = [:]
             for id in ids {
-                channels[id] = try? run(source, ["channel", "list", "--server", id])
-                threads[id] = try? run(source, ["thread", "list", "--server", id])
+                channels[id] = try run(source, ["channel", "list", "--server", id])
+                threads[id] = try run(source, ["thread", "list", "--server", id])
             }
             var catalog = try DiscordCatalog.assemble(servers: serversJSON, channels: channels, threads: threads)
             struct Bot: Decodable { var username: String; var global_name: String? }
