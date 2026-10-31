@@ -56,6 +56,19 @@ import Testing
         #expect(index.search("co", favorites: ["target:clipboard"]).first?.id == "target:clipboard")
     }
 
+    @Test func favoriteCandidatesSkipFavoritesAndKeepServerGroups() {
+        let catalog = DiscordCatalog(updatedAt: Date(), servers: [
+            .init(id: "s", name: "S", channels: [.init(id: "c1", name: "general")]),
+        ])
+        let index = DestinationIndex(pinned: [], catalog: catalog, targets: settings().destinations(clipboardName: "Copy", folderName: "Save", shareName: "Share"))
+        let sections = Favorites.candidates(in: index, excluding: ["target:clipboard", "c1"])
+        #expect(sections.map(\.id) == ["targets"])
+        #expect(sections[0].items.map(\.id) == ["target:app:com.openai.chat", "target:folder", "target:command:c1"])
+        let all = Favorites.candidates(in: index, excluding: [])
+        #expect(all.map(\.id) == ["targets", "server:S"])
+        #expect(all[1].title == "S")
+    }
+
     @Test func favoriteListToggleMoveAndNumberKeys() {
         #expect(Favorites.toggle("a", in: ["b"]) == ["b", "a"])
         #expect(Favorites.toggle("a", in: ["a", "b"]) == ["b"])
@@ -75,6 +88,12 @@ import Testing
     @Test func urlTemplatePercentEncodes() {
         let url = CommandTemplate.url("myapp://new?text={note}&path={folder}", values: ["note": "a&b c", "folder": "/x/y"])
         #expect(url?.absoluteString == "myapp://new?text=a%26b%20c&path=%2Fx%2Fy")
+    }
+
+    @Test func templatesEncodeUnicodeAndLeaveUnclosedBraces() {
+        let url = CommandTemplate.url("myapp://new?text={note}", values: ["note": "한글 ✅"])
+        #expect(url?.absoluteString == "myapp://new?text=%ED%95%9C%EA%B8%80%20%E2%9C%85")
+        #expect(CommandTemplate.shell("echo {note", values: ["note": "x"]) == "echo {note")
     }
 
     @Test func environmentNamesAreUppercasePrefixed() {
@@ -121,9 +140,9 @@ import Testing
         #expect(try JSONDecoder().decode(AppTarget.self, from: JSONEncoder().encode(on)).includeScreenText)
     }
 
-    @Test func writerWithoutEventsLogAndPrune() throws {
+    @Test func writerPrunesOldFolders() throws {
         let root = FileManager.default.temporaryDirectory.appending(path: "appshot-target-\(UUID().uuidString)")
-        let writer = InboxWriter(inboxDir: root, eventsLog: nil)
+        let writer = InboxWriter(inboxDir: root)
         let meta = AppshotMeta(
             createdAt: "x", app: .init(name: "A", bundleID: nil, pid: 1), window: .init(title: nil, id: nil, frame: nil),
             url: nil, document: nil, note: "", channel: .init(id: "target:clipboard", label: "Copy", source: "panel"),
