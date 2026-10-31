@@ -260,6 +260,14 @@ public enum CommandTemplate {
             (stripsTabs ? line.drop(while: { $0 == "\t" }) : line) == delimiter
         }
 
+        /// A literal body cannot hold a line equal to the delimiter: the shell would end the body there and run
+        /// the rest of the value as code. Such a line gets a leading space, which no delimiter matches.
+        func literal(_ value: String, atLineStart: Bool) -> String {
+            value.split(separator: "\n", omittingEmptySubsequences: false).enumerated().map { offset, line in
+                (offset > 0 || atLineStart) && ends(line) ? " " + line : String(line)
+            }.joined(separator: "\n")
+        }
+
         /// Reads the operator and its delimiter at `index`, or nil when this is not a here-document.
         static func read(_ template: String, at index: String.Index) -> (Heredoc, String.Index)? {
             var cursor = template.index(after: index)
@@ -303,7 +311,7 @@ public enum CommandTemplate {
                 let key = String(line[next..<close])
                 if let value = values[key] {
                     if output.last == "$" { output.removeLast() }
-                    output += heredoc.expands ? "${\(environmentName(key))}" : value
+                    output += heredoc.expands ? "${\(environmentName(key))}" : heredoc.literal(value, atLineStart: output.isEmpty)
                     index = line.index(after: close)
                     continue
                 }
