@@ -226,7 +226,7 @@ Scripting:
 open -n -W -a Appshot --stdout out.txt --args --appshot-now --note "what is this?" --channel recent
 ```
 
-This captures the front window without showing the panel and prints a one-line result, such as `Posted to <destination> in Discord.`. `--channel` takes `recent` (the default), a `key` from `channels`, a destination ID, or a target such as `clipboard`. `--app <bundle ID>` captures that app's front window instead, `--delay-ms` waits before capturing (default 500), and `--config <path>` reads a different config file. Exit codes: 2 config error, 3 no window, 4 unknown channel, 5 send or write failure.
+This captures the front window without showing the panel and prints a one-line result, such as `Posted to <destination> in Discord.`. `--channel` takes `recent` (the default), a `key` from `channels`, a destination ID, or a target such as `clipboard`. `recent` is the destination the panel would preselect: the last place you sent an appshot, or your assistant's current conversation when that was the assistant. Without a config file it is the last place you sent one, and the command exits 2 if there is none yet. `--app <bundle ID>` captures that app's front window instead, `--delay-ms` waits before capturing (default 500), and `--config <path>` reads a different config file. Exit codes: 2 config error, 3 no window, 4 unknown channel, 5 send or write failure.
 
 ## Contributing
 
