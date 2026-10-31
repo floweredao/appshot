@@ -541,16 +541,11 @@ final class AppController {
         let index = destinationIndex(config)
         model.index = index
         var recents = recentIDs
-        var preferred: Destination?
-        if let config {
-            let resolved = ChannelResolver(config: config).resolve()
-            recents = RecentDestinations.push(resolved.id, into: recents)
-            preferred = index.destination(id: resolved.id) ?? Destination(id: resolved.id, name: resolved.label, kind: .thread)
-        }
-        if let last = UserDefaults.standard.string(forKey: Self.lastKey), let found = index.destination(id: last), !found.kind.isAssistant {
-            preferred = found
-            recents = RecentDestinations.push(last, into: recents)
-        }
+        let resolved = config.map { ChannelResolver(config: $0).resolve() }
+        let last = UserDefaults.standard.string(forKey: Self.lastKey)
+        let preferred = index.preferred(resolved: resolved, lastDestination: last)
+        if let resolved { recents = RecentDestinations.push(resolved.id, into: recents) }
+        if let preferred, !preferred.kind.isAssistant { recents = RecentDestinations.push(preferred.id, into: recents) }
         model.recentIDs = recents
         model.favoriteIDs = favoriteIDs
         model.numberShortcuts = numberShortcuts
@@ -729,12 +724,13 @@ final class AppController {
         let index = destinationIndex(config)
         let destination: Destination
         if request.channel == "recent" {
-            guard let config else {
+            // The same choice the panel preselects; without an assistant config only the last destination is left.
+            let resolved = config.map { ChannelResolver(config: $0).resolve() }
+            guard let preferred = index.preferred(resolved: resolved, lastDestination: UserDefaults.standard.string(forKey: Self.lastKey)) else {
                 FileHandle.standardError.write(Data("appshot: \(configError ?? "config error")\n".utf8))
                 exit(2)
             }
-            let resolved = ChannelResolver(config: config).resolve()
-            destination = index.destination(id: resolved.id) ?? Destination(id: resolved.id, name: resolved.label, kind: .thread)
+            destination = preferred
         } else if let option = config?.channel(forKey: request.channel), let found = index.destination(id: option.id) {
             destination = found
         } else if let found = index.destination(id: request.channel) ?? index.destination(id: "target:\(request.channel)") {
