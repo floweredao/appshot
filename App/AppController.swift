@@ -174,7 +174,8 @@ final class AppController {
     func setShortcut(_ value: Shortcut) {
         shortcut = value
         shortcutWarning = value.knownConflict.map {
-            String(localized: "This shortcut is normally used for \($0). It may not work or may block that action.")
+            let name = String(localized: String.LocalizationValue($0))
+            return String(localized: "This shortcut is normally used for \(name). It may not work or may block that action.")
         }
         if let data = try? JSONEncoder().encode(value) { UserDefaults.standard.set(data, forKey: Self.shortcutKey) }
         applyShortcut()
