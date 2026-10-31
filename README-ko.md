@@ -204,13 +204,21 @@ Codex는 이렇게 해요. OpenAI 문서에 따르면 Appshots는 손쉬운 사�
 
 ## 소스로 빌드
 
-Xcode 16 이상(Swift 6, macOS 15 SDK), XcodeGen, Apple Development 서명 인증서가 필요해요.
+Xcode 16 이상(Swift 6, macOS 15 SDK)과 XcodeGen이 필요해요. 서명 인증서는 없어도 돼요.
 
 ```sh
 brew install xcodegen
-echo 'DEVELOPMENT_TEAM = <팀 ID>' > Config/Local.xcconfig   # git에 안 들어가요
 ./scripts/build.sh --install                                # -> /Applications/Appshot.app
 swift test --package-path Packages/AppshotCore              # 단위 테스트
+```
+
+인증서가 없으면 앱을 ad-hoc으로 서명해요. Apple 개발자 계정이 없어도 되고 앱도 잘 돌아가지만, macOS는 다시 빌드할 때마다 다른 앱으로 봐요. 그래서 빌드할 때마다 화면 기록과 손쉬운 사용을 다시 허용해야 하고, **설치하고 다시 열기**는 GitHub 릴리스를 거부해요. 서명한 주체가 다르기 때문이에요. 업데이트는 릴리스를 직접 받아서 하세요.
+
+Apple Development 인증서가 있으면 앱이 하나의 신원을 유지해요:
+
+```sh
+echo 'DEVELOPMENT_TEAM = <팀 ID>' > Config/Local.xcconfig   # git에 안 들어가요
+./scripts/build.sh --install
 ```
 
 늘 같은 인증서로 서명해야 업데이트한 뒤에도 권한이 유지돼요.
