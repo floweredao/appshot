@@ -60,6 +60,55 @@ import Testing
         }
     }
 
+    @Test func hereDocumentBodiesKeepCapturedTextLiteral() throws {
+        // A here-document body is not shell code, so the value needs no quotes there — and quotes would show up
+        // in the text. An unquoted delimiter still expands `$…` and backticks in the body.
+        let payloads = ["$(touch pwned)", "`touch pwned`", "'; touch pwned; '", "plain text", "EOF\ntouch pwned", "\tEOF\ntouch pwned"]
+        let cases: [(template: String, before: String, after: String)] = [
+            ("cat <<EOF\n{note}\nEOF", "", "\n"),
+            ("cat <<EOF\npre {note} post\nEOF", "pre ", " post\n"),
+            ("cat <<-EOF\n\t{note}\n\tEOF", "", "\n"),
+            ("cat <<\"EOF\"\n{note}\nEOF\n", "", "\n"),
+            ("cat <<-'EOF'\n{note}\nEOF", "", "\n"),
+            ("printf %s {note}; cat <<EOF\n{note}\nEOF", "", "\n"),
+        ]
+        for item in cases {
+            for payload in payloads {
+                let dir = FileManager.default.temporaryDirectory.appending(path: "appshot-shell-\(UUID().uuidString)")
+                try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+                defer { try? FileManager.default.removeItem(at: dir) }
+                let script = CommandTemplate.shell(item.template, values: ["note": payload])
+                let output = try runShell(script, in: dir, values: ["note": payload])
+                let ran = FileManager.default.fileExists(atPath: dir.appending(path: "pwned").path)
+                // A literal body cannot hold a line that ends it, so such a line comes out with a leading space.
+                let stripsTabs = item.template.contains("<<-")
+                let shown = !item.template.contains("<<'") && !item.template.contains("<<-'") && !item.template.contains("<<\"")
+                    ? payload
+                    : payload.split(separator: "\n", omittingEmptySubsequences: false).map { line in
+                        (stripsTabs ? line.drop(while: { $0 == "\t" }) : line) == "EOF" ? " " + line : String(line)
+                    }.joined(separator: "\n")
+                let expected = item.template.hasPrefix("printf") ? payload + payload + item.after
+                    : item.before + shown + item.after
+                #expect(!ran, "\(script)")
+                #expect(output == expected, "\(script)")
+            }
+        }
+    }
+
+    @Test func hereDocumentPlaceholdersRenderWithoutQuotes() {
+        // A quoted delimiter makes the body literal, so the value goes in as it is.
+        #expect(CommandTemplate.shell("cat <<'EOF'\n{note}\nEOF", values: ["note": "it's $PATH"]) == "cat <<'EOF'\nit's $PATH\nEOF")
+        // An unquoted delimiter expands the body, so the value is read from the environment instead.
+        #expect(CommandTemplate.shell("cat <<EOF\n{note}\nEOF", values: ["note": "x"]) == "cat <<EOF\n${APPSHOT_NOTE}\nEOF")
+        // Only the body is treated as text: the same placeholder after the terminator is quoted as code again.
+        #expect(
+            CommandTemplate.shell("cat <<EOF\n{note}\nEOF\necho {note}", values: ["note": "a b"])
+                == "cat <<EOF\n${APPSHOT_NOTE}\nEOF\necho 'a b'"
+        )
+        // `<<<` is a here-string, not a here-document.
+        #expect(CommandTemplate.shell("cat <<<{note}", values: ["note": "a b"]) == "cat <<<'a b'")
+    }
+
     /// Runs the script the way `TargetDelivery` does: `/bin/sh -c` with the values also in the environment.
     private func runShell(_ script: String, in directory: URL, values: [String: String] = [:]) throws -> String {
         let process = Process()
