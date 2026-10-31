@@ -63,14 +63,15 @@ struct SettingsView: View {
                     openSettings: { controller.openPrivacyPane("Privacy_Accessibility") }
                 )
                 HStack {
-                    Text("If a permission does not take effect, restart Appshot.")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
                     Spacer()
                     Button("Restart", action: controller.relaunch)
                 }
             } header: {
                 Text("Permissions")
+            } footer: {
+                Text("If a permission does not take effect, restart Appshot.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
             }
 
             Section {
@@ -167,40 +168,36 @@ private struct ShortcutField: View {
     @State private var rejected = false
 
     var body: some View {
-        LabeledContent {
-            HStack(spacing: 8) {
-                Button(action: toggle) {
-                    HStack(spacing: 6) {
-                        if controller.recordingShortcut {
-                            Image(systemName: "record.circle").foregroundStyle(.red)
-                            Text("Press keys…")
-                        } else {
-                            Text(verbatim: controller.shortcut.display).font(.system(.body, design: .rounded).weight(.medium))
-                        }
+        HStack(alignment: .center, spacing: 8) {
+            Text("Take an appshot")
+            Spacer(minLength: 12)
+            Button(action: toggle) {
+                HStack(spacing: 6) {
+                    if controller.recordingShortcut {
+                        Image(systemName: "record.circle").foregroundStyle(.red)
+                        Text("Press keys…")
+                    } else {
+                        Text(verbatim: controller.shortcut.display).font(.system(.body, design: .rounded).weight(.medium))
                     }
-                    .frame(minWidth: 150)
-                    .padding(.vertical, 3)
                 }
-                .controlSize(.large)
-                .accessibilityLabel(Text("Shortcut"))
-                .accessibilityValue(Text(verbatim: controller.shortcut.display))
-                .accessibilityHint(Text("Press to record a new shortcut"))
-                if controller.recordingShortcut {
-                    Button("Cancel", action: stop)
-                } else {
-                    Button("Reset to Default") { controller.setShortcut(.default) }
-                        .disabled(controller.shortcut == .default)
-                }
+                .frame(minWidth: 120)
             }
-        } label: {
-            VStack(alignment: .leading, spacing: 2) {
-                Text("Take an appshot")
-                if rejected {
-                    Text("Include ⌘, ⌥, or ⌃ in a key combination.").font(.caption).foregroundStyle(.orange)
-                }
+            .accessibilityLabel(Text("Shortcut"))
+            .accessibilityValue(Text(verbatim: controller.shortcut.display))
+            .accessibilityHint(Text("Press to record a new shortcut"))
+            if controller.recordingShortcut {
+                Button("Cancel", action: stop)
+            } else {
+                Button("Reset to Default") { controller.setShortcut(.default) }
+                    .disabled(controller.shortcut == .default)
             }
         }
         .onDisappear(perform: stop)
+        if rejected {
+            Label("Include ⌘, ⌥, or ⌃ in a key combination.", systemImage: "exclamationmark.triangle.fill")
+                .foregroundStyle(.orange)
+                .font(.callout)
+        }
     }
 
     private func toggle() {
@@ -360,17 +357,19 @@ private struct PermissionRow: View {
                 .font(.title3)
                 .foregroundStyle(granted ? .green : .orange)
                 .accessibilityLabel(granted ? Text("Allowed") : Text("Needed"))
-            VStack(alignment: .leading, spacing: 2) {
-                title
-                detail.font(.caption).foregroundStyle(.secondary)
+            HStack(alignment: .firstTextBaseline, spacing: 10) {
+                VStack(alignment: .leading, spacing: 2) {
+                    title
+                    detail.font(.caption).foregroundStyle(.secondary)
+                }
+                Spacer()
+                if granted {
+                    Text("Allowed").font(.callout).foregroundStyle(.secondary)
+                } else {
+                    Button("Allow…", action: request)
+                }
+                Button("Open Settings", action: openSettings)
             }
-            Spacer()
-            if granted {
-                Text("Allowed").font(.callout).foregroundStyle(.secondary)
-            } else {
-                Button("Allow…", action: request)
-            }
-            Button("Open Settings", action: openSettings)
         }
     }
 }
@@ -432,6 +431,9 @@ private struct TargetsSection: View {
                 }
             }
             HStack {
+                if settings.apps.isEmpty {
+                    Text("No apps yet.").foregroundStyle(.secondary)
+                }
                 Spacer()
                 Button("Add App…", action: controller.addAppTarget)
             }
@@ -478,6 +480,9 @@ private struct TargetsSection: View {
                 }
             }
             HStack {
+                if settings.commands.isEmpty {
+                    Text("No custom commands yet.").foregroundStyle(.secondary)
+                }
                 Spacer()
                 Button("Add Command") {
                     controller.updateTargets {
@@ -622,17 +627,6 @@ private struct FavoritesSection: View {
         let favorites = controller.favoriteIDs
         let index = controller.destinationIndex(controller.config)
         Section {
-            Toggle(isOn: Binding(get: { controller.numberShortcuts }, set: { controller.numberShortcuts = $0 })) {
-                VStack(alignment: .leading, spacing: 2) {
-                    Text("Number shortcuts")
-                    Text("Press ⌘1–⌘9 in the panel to pick a destination from the top of the list.")
-                        .font(.caption).foregroundStyle(.secondary)
-                }
-            }
-            if favorites.isEmpty {
-                Text("No favorites yet. Click the star next to a destination in the panel, or press ⌘D.")
-                    .foregroundStyle(.secondary)
-            }
             ForEach(Array(favorites.enumerated()), id: \.element) { position, id in
                 HStack(spacing: 10) {
                     if let item = index.destination(id: id) {
@@ -668,8 +662,61 @@ private struct FavoritesSection: View {
                     .accessibilityLabel(Text("Remove"))
                 }
             }
+            HStack {
+                if favorites.isEmpty {
+                    Text("No favorites yet.").foregroundStyle(.secondary)
+                }
+                Spacer()
+                addMenu(Favorites.candidates(in: index, excluding: favorites), favorites: favorites)
+            }
+            Toggle(isOn: Binding(get: { controller.numberShortcuts }, set: { controller.numberShortcuts = $0 })) {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Number shortcuts")
+                    Text("Press ⌘1–⌘9 in the panel to pick a destination from the top of the list.")
+                        .font(.caption).foregroundStyle(.secondary)
+                }
+            }
         } header: {
             Text("Favorites")
+        } footer: {
+            Text("Favorites come first in the panel. You can also click the star next to a destination there, or press ⌘D.")
+                .font(.caption).foregroundStyle(.secondary)
         }
+    }
+
+    private func addMenu(_ sections: [DestinationIndex.Section], favorites: [String]) -> some View {
+        Menu {
+            ForEach(sections) { section in
+                if let title = section.title {
+                    Menu {
+                        items(section.items, favorites: favorites)
+                    } label: {
+                        Text(verbatim: title)
+                    }
+                } else {
+                    items(section.items, favorites: favorites)
+                    Divider()
+                }
+            }
+        } label: {
+            Text("Add Favorite")
+        }
+        .fixedSize()
+        .disabled(sections.isEmpty)
+    }
+
+    private func items(_ items: [Destination], favorites: [String]) -> some View {
+        ForEach(items) { item in
+            Button {
+                controller.favoriteIDs = Favorites.toggle(item.id, in: favorites)
+            } label: {
+                Text(verbatim: menuTitle(item))
+            }
+        }
+    }
+
+    private func menuTitle(_ item: Destination) -> String {
+        if item.kind == .thread, let parent = item.parent { return "#\(parent) › \(item.title)" }
+        return item.title
     }
 }

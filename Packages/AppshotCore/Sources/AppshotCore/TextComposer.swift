@@ -35,6 +35,17 @@ public enum TextComposer {
         return ("\(head)\n\n_(\(omitted) characters omitted)_\n\n\(tail)", omitted)
     }
 
+    /// A code fence longer than any backtick run in `text`, so a field that holds Markdown stays inside its block.
+    static func fence(for text: String) -> String {
+        var longest = 0
+        var run = 0
+        for character in text {
+            run = character == "`" ? run + 1 : 0
+            longest = max(longest, run)
+        }
+        return String(repeating: "`", count: max(3, longest + 1))
+    }
+
     public static func composePage(
         appName: String,
         windowTitle: String?,
@@ -44,9 +55,9 @@ public enum TextComposer {
         limit: Int = defaultLimit
     ) -> ComposedText {
         var header = "# \(appName)"
-        if let title = windowTitle, !title.isEmpty { header += " — \(title)" }
+        if let title = windowTitle, !title.isEmpty { header += " — \(oneLine(title))" }
         header += "\n\n"
-        if let url, !url.isEmpty { header += "- URL: \(url)\n\n" }
+        if let url, !url.isEmpty { header += "- URL: \(oneLine(url))\n\n" }
         var body = ""
         if let selection = selection?.trimmingCharacters(in: .whitespacesAndNewlines), !selection.isEmpty {
             let clippedSelection = clip(selection, limit: min(20_000, limit / 4)).text
@@ -71,10 +82,10 @@ public enum TextComposer {
         limit: Int = defaultLimit
     ) -> ComposedText {
         var header = "# \(appName)"
-        if let title = windowTitle, !title.isEmpty { header += " — \(title)" }
+        if let title = windowTitle, !title.isEmpty { header += " — \(oneLine(title))" }
         header += "\n\n"
-        if let url, !url.isEmpty { header += "- URL: \(url)\n" }
-        if let document, !document.isEmpty, document != url { header += "- Document: \(document)\n" }
+        if let url, !url.isEmpty { header += "- URL: \(oneLine(url))\n" }
+        if let document, !document.isEmpty, document != url { header += "- Document: \(oneLine(document))\n" }
         if !header.hasSuffix("\n\n") { header += "\n" }
 
         var body = ""
@@ -87,7 +98,7 @@ public enum TextComposer {
             let rendered: String = switch line.kind {
             case .heading: "\n## \(text.replacingOccurrences(of: "\n", with: " "))\n\n"
             case .body: "\(text)\n"
-            case .field: "\n```\n\(text)\n```\n"
+            case .field: "\n\(fence(for: text))\n\(text)\n\(fence(for: text))\n"
             }
             body += rendered
         }
@@ -98,5 +109,10 @@ public enum TextComposer {
         if body.isEmpty { body = "_(no readable text from accessibility)_\n" }
         if traversalTruncated { body += "\n_(text truncated)_\n" }
         return ComposedText(markdown: header + body, bodyCharacters: fullCount, truncated: truncated)
+    }
+
+    /// A window title or URL with a line break would end the heading or list item and start a fake section.
+    static func oneLine(_ text: String) -> String {
+        String(text.map { (character: Character) -> Character in character.isNewline ? " " : character })
     }
 }
