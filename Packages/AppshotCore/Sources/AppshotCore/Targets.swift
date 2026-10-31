@@ -157,13 +157,34 @@ public enum CommandTemplate {
     /// or inside backticks, so a placeholder the user wrapped in quotes cannot be broken out of.
     /// Comments are copied as they are, so an apostrophe in one does not open a quote.
     /// `$'…'` strings and `${…}` expansions are tracked too, and `${key}` fills the value like `{key}`.
+    /// A here-document body is text rather than code, so a placeholder there takes no quotes at all.
     public static func shell(_ template: String, values: [String: String]) -> String {
         var output = ""
         // `'` and `"` quotes, `$` for `$'…'`, `(` for `( … )` and `$( … )`, `{` for `${ … }`, and backticks.
         var open: [Character] = []
         var bareDollar = false
+        // Here-documents opened on the current line, and the one whose body the scan is inside.
+        var pending: [Heredoc] = []
+        var body: Heredoc?
         var index = template.startIndex
         while index < template.endIndex {
+            if let heredoc = body {
+                let lineEnd = template[index...].firstIndex(of: "\n") ?? template.endIndex
+                let line = template[index..<lineEnd]
+                if heredoc.ends(line) {
+                    output += line
+                    body = nil
+                } else {
+                    output += fill(line, values: values, in: heredoc)
+                }
+                index = lineEnd
+                if index < template.endIndex {
+                    output.append("\n")
+                    index = template.index(after: index)
+                    if body == nil, !pending.isEmpty { body = pending.removeFirst() }
+                }
+                continue
+            }
             let character = template[index]
             let next = template.index(after: index)
             let top = open.last
@@ -178,6 +199,12 @@ public enum CommandTemplate {
                     index = template.index(after: close)
                     continue
                 }
+            }
+            if open.isEmpty, character == "<", let (heredoc, after) = Heredoc.read(template, at: index) {
+                output += template[index..<after]
+                pending.append(heredoc)
+                index = after
+                continue
             }
             if top == "'" {
                 if character == "'" { open.removeLast() }
@@ -215,6 +242,73 @@ public enum CommandTemplate {
             }
             output.append(character)
             bareDollar = character == "$" && top != "'" && top != "$"
+            if character == "\n", body == nil, !pending.isEmpty { body = pending.removeFirst() }
+            index = next
+        }
+        return output
+    }
+
+    /// A here-document the template opened with `<<`, `<<-`, `<<'EOF'` or `<<"EOF"`.
+    private struct Heredoc {
+        var delimiter: String
+        /// An unquoted delimiter leaves the body expanding `$…`, `` `…` `` and backslashes.
+        var expands: Bool
+        /// `<<-` drops leading tabs, from the body and from the line that ends it.
+        var stripsTabs: Bool
+
+        func ends(_ line: Substring) -> Bool {
+            (stripsTabs ? line.drop(while: { $0 == "\t" }) : line) == delimiter
+        }
+
+        /// Reads the operator and its delimiter at `index`, or nil when this is not a here-document.
+        static func read(_ template: String, at index: String.Index) -> (Heredoc, String.Index)? {
+            var cursor = template.index(after: index)
+            guard cursor < template.endIndex, template[cursor] == "<" else { return nil }
+            cursor = template.index(after: cursor)
+            // `<<<` is a here-string: the word after it is an argument, not a delimiter.
+            guard cursor == template.endIndex || template[cursor] != "<" else { return nil }
+            var stripsTabs = false
+            if cursor < template.endIndex, template[cursor] == "-" {
+                stripsTabs = true
+                cursor = template.index(after: cursor)
+            }
+            while cursor < template.endIndex, template[cursor] == " " || template[cursor] == "\t" {
+                cursor = template.index(after: cursor)
+            }
+            guard cursor < template.endIndex else { return nil }
+            if template[cursor] == "'" || template[cursor] == "\"" {
+                let quote = template[cursor]
+                let start = template.index(after: cursor)
+                guard let end = template[start...].firstIndex(of: quote) else { return nil }
+                let word = String(template[start..<end])
+                guard !word.isEmpty else { return nil }
+                return (Heredoc(delimiter: word, expands: false, stripsTabs: stripsTabs), template.index(after: end))
+            }
+            // A delimiter is a plain word: `{` stops it, so `<<<{key}` stays a here-string with a placeholder.
+            let end = template[cursor...].firstIndex { $0.isWhitespace || ";&|<>()'\"`${".contains($0) } ?? template.endIndex
+            guard cursor < end else { return nil }
+            return (Heredoc(delimiter: String(template[cursor..<end]), expands: true, stripsTabs: stripsTabs), end)
+        }
+    }
+
+    /// Fills the placeholders of one here-document body line. The body is text, so the value needs no quotes:
+    /// quotes would show up in it. A body that expands `$…` reads the value from the environment instead of
+    /// holding it, so neither the captured characters nor a line of it that equals the delimiter is parsed.
+    private static func fill(_ line: Substring, values: [String: String], in heredoc: Heredoc) -> String {
+        var output = ""
+        var index = line.startIndex
+        while index < line.endIndex {
+            let next = line.index(after: index)
+            if line[index] == "{", let close = line[index...].firstIndex(of: "}") {
+                let key = String(line[next..<close])
+                if let value = values[key] {
+                    if output.last == "$" { output.removeLast() }
+                    output += heredoc.expands ? "${\(environmentName(key))}" : value
+                    index = line.index(after: close)
+                    continue
+                }
+            }
+            output.append(line[index])
             index = next
         }
         return output
