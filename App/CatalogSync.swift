@@ -24,7 +24,10 @@ enum CatalogSync {
                 channels[id] = try run(source, ["channel", "list", "--server", id])
                 threads[id] = try run(source, ["thread", "list", "--server", id])
             }
-            let catalog = try DiscordCatalog.assemble(servers: serversJSON, channels: channels, threads: threads)
+            var catalog = try DiscordCatalog.assemble(servers: serversJSON, channels: channels, threads: threads)
+            struct Bot: Decodable { var username: String; var global_name: String? }
+            catalog.botName = (try? run(source, ["whoami"])).flatMap { try? JSONDecoder().decode(Bot.self, from: $0) }
+                .map { $0.global_name ?? $0.username }
             try catalog.save(to: source.cacheURL)
             return catalog
         }.value
@@ -34,6 +37,12 @@ enum CatalogSync {
         guard let catalog else { return true }
         let minutes = Double(source.refreshMinutes ?? 15)
         return Date().timeIntervalSince(catalog.updatedAt) > minutes * 60
+    }
+
+    static func messages(_ source: CatalogSource, channel: String, limit: Int) async throws -> Data {
+        try await Task.detached(priority: .userInitiated) {
+            try run(source, ["message", "list", channel, "--limit", String(limit)])
+        }.value
     }
 
     private static func run(_ source: CatalogSource, _ arguments: [String]) throws -> Data {

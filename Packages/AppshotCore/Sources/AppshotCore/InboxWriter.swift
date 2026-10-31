@@ -34,6 +34,20 @@ public struct AppshotMeta: Codable, Sendable, Equatable {
         }
     }
 
+    /// The Discord message Appshot posted for this appshot.
+    public struct Discord: Codable, Sendable, Equatable {
+        public var server: String
+        public var channel: String
+        public var message: String?
+        public var url: String
+        public init(server: String, channel: String, message: String?, url: String) {
+            self.server = server
+            self.channel = channel
+            self.message = message
+            self.url = url
+        }
+    }
+
     public struct TextInfo: Codable, Sendable, Equatable {
         public var characters: Int
         public var truncated: Bool
@@ -62,6 +76,7 @@ public struct AppshotMeta: Codable, Sendable, Equatable {
     public var document: String?
     public var note: String
     public var channel: Channel
+    public var discord: Discord?
     public var files: [String: String] = [:]
     public var text: TextInfo
     public var errors: [String]
@@ -106,13 +121,12 @@ public enum WriterError: Error, CustomStringConvertible {
     }
 }
 
+/// Writes one appshot folder (screenshot, text, meta.json) into Appshot's own captures folder.
 public struct InboxWriter: Sendable {
     public var inboxDir: URL
-    public var eventsLog: URL?
 
-    public init(inboxDir: URL, eventsLog: URL?) {
+    public init(inboxDir: URL) {
         self.inboxDir = inboxDir
-        self.eventsLog = eventsLog
     }
 
     public static func folderName(for date: Date, timeZone: TimeZone = .current) -> String {
@@ -121,12 +135,6 @@ public struct InboxWriter: Sendable {
         formatter.timeZone = timeZone
         formatter.dateFormat = "yyyyMMdd-HHmmss-SSS"
         return formatter.string(from: date)
-    }
-
-    public static func eventLine(for folder: URL) -> String {
-        var path = folder.path(percentEncoded: false)
-        while path.count > 1, path.hasSuffix("/") { path.removeLast() }
-        return "EVENT APPSHOT \(path)\n"
     }
 
     @discardableResult
@@ -153,9 +161,7 @@ public struct InboxWriter: Sendable {
             encoder.outputFormatting = [.prettyPrinted, .sortedKeys, .withoutEscapingSlashes]
             try writeFile(try encoder.encode(meta), named: "meta.json", in: staging)
 
-            let final = try publish(staging, base: base)
-            if let eventsLog { try appendEvent(Self.eventLine(for: final), to: eventsLog) }
-            return final
+            return try publish(staging, base: base)
         } catch {
             try? fm.removeItem(at: staging)
             throw error
@@ -179,24 +185,33 @@ public struct InboxWriter: Sendable {
         throw WriterError.io("rename folder", EEXIST)
     }
 
+    /// Rewrites the meta.json of a folder this writer made, e.g. to add the Discord message or a delivery error.
+    public static func updateMeta(in folder: URL, _ change: (inout AppshotMeta) -> Void) throws {
+        let url = folder.appending(path: "meta.json")
+        var meta = try JSONDecoder().decode(AppshotMeta.self, from: Data(contentsOf: url))
+        change(&meta)
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = [.prettyPrinted, .sortedKeys, .withoutEscapingSlashes]
+        try encoder.encode(meta).write(to: url, options: .atomic)
+    }
+
     public func prune(keeping limit: Int) {
         let fm = FileManager.default
-        guard let names = try? fm.contentsOfDirectory(atPath: inboxDir.path) else { return }
-        let folders = names.filter { !$0.hasPrefix(".") }.sorted()
-        for name in folders.dropLast(limit) { try? fm.removeItem(at: inboxDir.appending(path: name)) }
+        guard let urls = try? fm.contentsOfDirectory(at: inboxDir, includingPropertiesForKeys: [.creationDateKey]) else { return }
+        // Oldest first by creation date: folder names are local time, which runs backwards when the clock or time zone moves back.
+        var folders: [(url: URL, created: Date)] = []
+        for url in urls where !url.lastPathComponent.hasPrefix(".") {
+            let created: Date = (try? url.resourceValues(forKeys: [.creationDateKey]).creationDate) ?? Date.distantPast
+            folders.append((url: url, created: created))
+        }
+        folders.sort { left, right in
+            if left.created != right.created { return left.created < right.created }
+            return left.url.lastPathComponent < right.url.lastPathComponent
+        }
+        for folder in folders.dropLast(limit) { try? fm.removeItem(at: folder.url) }
     }
 
     private func rename(_ from: URL, to: URL) throws {
         if Foundation.rename(from.path, to.path) != 0 { throw WriterError.io("rename \(to.lastPathComponent)", errno) }
-    }
-
-    private func appendEvent(_ line: String, to eventsLog: URL) throws {
-        try FileManager.default.createDirectory(at: eventsLog.deletingLastPathComponent(), withIntermediateDirectories: true)
-        let fd = open(eventsLog.path, O_WRONLY | O_APPEND | O_CREAT, 0o644)
-        guard fd >= 0 else { throw WriterError.io("open events log", errno) }
-        defer { close(fd) }
-        let bytes = Array(line.utf8)
-        let written = bytes.withUnsafeBytes { Foundation.write(fd, $0.baseAddress, $0.count) }
-        if written != bytes.count { throw WriterError.io("append event", errno) }
     }
 }

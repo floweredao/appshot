@@ -7,7 +7,6 @@ import Testing
 private func makeConfig(_ root: URL) -> AppshotConfig {
     AppshotConfig(
         stateDir: root.appending(path: "state").path,
-        inboxDir: root.appending(path: "inbox/appshot").path,
         channels: [
             ChannelOption(key: "general", label: "#general", id: "100"),
             ChannelOption(key: "coding", label: "#coding", id: "200"),
@@ -73,6 +72,19 @@ private func inboxLine(_ id: String, _ channel: String, _ text: String) -> Strin
         #expect(resolved.id == "100")
         #expect(resolved.source == .lastReceived)
     }
+
+    @Test func keepsCompleteFirstLineWhenTailStartsOnLineBoundary() throws {
+        let root = try tempRoot()
+        let config = makeConfig(root)
+        let early = inboxLine("1", "300", "early")
+        let late = inboxLine("2", "200", "late")
+        try "2\n".write(to: config.handledIdsURL, atomically: true, encoding: .utf8)
+        for trailer in ["", "\n"] {
+            try (early + "\n" + late + trailer).write(to: config.ownerInboxURL, atomically: true, encoding: .utf8)
+            let resolved = ChannelResolver(config: config, tailBytes: late.utf8.count + trailer.utf8.count).resolve()
+            #expect(resolved == ResolvedChannel(id: "200", label: "#coding", source: .lastHandled, lastMessage: "late"), "\(trailer.debugDescription)")
+        }
+    }
 }
 
 @Suite struct ConfigTests {
@@ -84,13 +96,35 @@ private func inboxLine(_ id: String, _ channel: String, _ text: String) -> Strin
 
     @Test func resolvesRelativeStateFilesAndTilde() {
         let config = AppshotConfig(
-            stateDir: "~/s", inboxDir: "~/i", channels: [ChannelOption(key: "g", label: "g", id: "1")],
-            fallbackChannel: "g", eventsLog: "/abs/events.log"
+            stateDir: "~/s", channels: [ChannelOption(key: "g", label: "g", id: "1")],
+            fallbackChannel: "g", ownerInbox: "/abs/owner.jsonl"
         )
         let home = FileManager.default.homeDirectoryForCurrentUser.path
         #expect(config.handledIdsURL.path == "\(home)/s/handled-ids.txt")
-        #expect(config.eventsLogURL.path == "/abs/events.log")
-        #expect(config.inboxURL.path.hasPrefix(home))
+        #expect(config.ownerInboxURL.path == "/abs/owner.jsonl")
+    }
+
+    @Test func oldConfigWithInboxKeysStillLoads() throws {
+        let json = #"{"stateDir":"~/s","inboxDir":"~/i","eventsLog":"e.log","channels":[{"key":"g","label":"g","id":"1"}],"fallbackChannel":"g"}"#
+        let config = try JSONDecoder().decode(AppshotConfig.self, from: Data(json.utf8))
+        try config.validate()
+        #expect(config.channels.map(\.id) == ["1"])
+    }
+
+    @Test func emptyOverridesUseDefaultFilesAndUnknownKeysAreIgnored() throws {
+        let root = try tempRoot()
+        let url = root.appending(path: "config.json")
+        let json = #"""
+        {"stateDir":"/srv/appshot/state","inboxDir":"/srv/appshot/inbox","fallbackChannel":"g",
+         "channels":[{"key":"g","label":"g","id":"1"}],"theme":"dark",
+         "eventsLog":"","ownerInbox":"","handledIds":"","catalog":{"cli":"/bin/true","path":""}}
+        """#
+        try json.write(to: url, atomically: true, encoding: .utf8)
+
+        let config = try AppshotConfig.load(from: url)
+        #expect(config.ownerInboxURL.path == "/srv/appshot/state/owner-inbox.jsonl")
+        #expect(config.handledIdsURL.path == "/srv/appshot/state/handled-ids.txt")
+        #expect(config.catalog?.cacheURL == CatalogSource(cli: "/bin/true").cacheURL)
     }
 }
 
@@ -106,20 +140,19 @@ private func inboxLine(_ id: String, _ channel: String, _ text: String) -> Strin
         )
     }
 
-    @Test func writesFolderAtomicallyAndAppendsOneEvent() throws {
+    @Test func writesFolderAtomicallyWithoutEventsLog() throws {
         let root = try tempRoot()
         let config = makeConfig(root)
-        try "EVENT OTHER x\n".write(to: config.eventsLogURL, atomically: true, encoding: .utf8)
-        let writer = InboxWriter(inboxDir: config.inboxURL, eventsLog: config.eventsLogURL)
+        let inbox = root.appending(path: "captures")
+        let writer = InboxWriter(inboxDir: inbox)
 
         let folder = try writer.write(AppshotPayload(png: Data([1]), jpeg: Data([2]), markdown: "hi", meta: meta()))
 
         let names = try FileManager.default.contentsOfDirectory(atPath: folder.path).sorted()
         #expect(names == ["meta.json", "shot.jpg", "shot.png", "text.md"])
-        let siblings = try FileManager.default.contentsOfDirectory(atPath: config.inboxURL.path)
+        let siblings = try FileManager.default.contentsOfDirectory(atPath: inbox.path)
         #expect(siblings == [folder.lastPathComponent])
-        let log = try String(contentsOf: config.eventsLogURL, encoding: .utf8)
-        #expect(log == "EVENT OTHER x\nEVENT APPSHOT \(folder.path)\n")
+        #expect(try FileManager.default.contentsOfDirectory(atPath: config.stateURL.path).isEmpty)
         let decoded = try JSONDecoder().decode(AppshotMeta.self, from: Data(contentsOf: folder.appending(path: "meta.json")))
         #expect(decoded.files == ["screenshot": "shot.png", "preview": "shot.jpg", "text": "text.md"])
         #expect(decoded.note == "look")
@@ -127,30 +160,41 @@ private func inboxLine(_ id: String, _ channel: String, _ text: String) -> Strin
 
     @Test func sameMillisecondGetsSuffixedFolder() throws {
         let root = try tempRoot()
-        let config = makeConfig(root)
-        let writer = InboxWriter(inboxDir: config.inboxURL, eventsLog: config.eventsLogURL)
+        let writer = InboxWriter(inboxDir: root.appending(path: "captures"))
         let now = Date(timeIntervalSince1970: 1_800_000_000)
 
         let first = try writer.write(AppshotPayload(png: nil, jpeg: nil, markdown: "a", meta: meta()), now: now)
         let second = try writer.write(AppshotPayload(png: nil, jpeg: nil, markdown: "b", meta: meta()), now: now)
 
         #expect(second.lastPathComponent == first.lastPathComponent + "-1")
-        let log = try String(contentsOf: config.eventsLogURL, encoding: .utf8)
-        #expect(log.split(separator: "\n").count == 2)
     }
 
-    @Test func failedWriteLeavesNoStagingAndNoEvent() throws {
+    @Test func failedWriteThrowsAndLeavesNoStaging() throws {
         let root = try tempRoot()
-        let config = makeConfig(root)
-        let blocker = root.appending(path: "state/blocked")
+        let blocker = root.appending(path: "blocked")
         try "file".write(to: blocker, atomically: true, encoding: .utf8)
-        let writer = InboxWriter(inboxDir: config.inboxURL, eventsLog: blocker.appending(path: "events.log"))
+        let writer = InboxWriter(inboxDir: blocker.appending(path: "captures"))
 
         #expect(throws: (any Error).self) {
             try writer.write(AppshotPayload(png: nil, jpeg: nil, markdown: "a", meta: meta()))
         }
-        let leftovers = try FileManager.default.contentsOfDirectory(atPath: config.inboxURL.path)
+        let leftovers = try FileManager.default.contentsOfDirectory(atPath: root.path)
         #expect(leftovers.filter { $0.hasSuffix(".tmp") }.isEmpty)
+    }
+
+    @Test func pruneKeepsTheNewestFolderWhenTheClockMovesBack() throws {
+        let root = try tempRoot()
+        let captures = root.appending(path: "captures")
+        let writer = InboxWriter(inboxDir: captures)
+        let payload = AppshotPayload(png: nil, jpeg: nil, markdown: "a", meta: meta())
+        let older = try writer.write(payload, now: Date(timeIntervalSince1970: 1_800_003_600))
+        try FileManager.default.setAttributes([.creationDate: Date(timeIntervalSinceNow: -3600)], ofItemAtPath: older.path)
+        // Written last, after the clock or time zone moved back an hour, so its name sorts first.
+        let newest = try writer.write(payload, now: Date(timeIntervalSince1970: 1_800_000_000))
+
+        writer.prune(keeping: 1)
+
+        #expect(try FileManager.default.contentsOfDirectory(atPath: captures.path) == [newest.lastPathComponent])
     }
 }
 
@@ -221,6 +265,45 @@ private func inboxLine(_ id: String, _ channel: String, _ text: String) -> Strin
         #expect(composed.markdown.hasPrefix("# A\n\n- URL: https://e\n\n"))
         #expect(composed.markdown.contains("characters omitted"))
         #expect(composed.markdown.hasSuffix("line 99\n"))
+    }
+
+    @Test func fieldFenceOutlastsBackticksInside() {
+        let composed = TextComposer.compose(
+            appName: "Editor", windowTitle: nil, url: nil, document: nil,
+            lines: [.init(.field, "Run:\n```sh\nmake\n```"), .init(.body, "after")],
+            traversalTruncated: false
+        )
+        #expect(composed.markdown == "# Editor\n\n\n````\nRun:\n```sh\nmake\n```\n````\nafter\n")
+    }
+
+    @Test func emptyTraversalSaysSoAndKeepsTruncationNotice() {
+        let composed = TextComposer.compose(
+            appName: "A", windowTitle: nil, url: nil, document: nil, lines: [.init(.body, "  \n ")], traversalTruncated: true
+        )
+        #expect(composed.markdown == "# A\n\n_(no readable text from accessibility)_\n\n_(text truncated)_\n")
+        #expect(composed.truncated)
+        #expect(composed.bodyCharacters == 0)
+    }
+
+    @Test func clipCountsCharactersSoEmojiAndHangulStayWhole() {
+        let family = "👨‍👩‍👧"
+        let text = String(repeating: family, count: 50) + String(repeating: "한", count: 50)
+        let clipped = TextComposer.clip(text, limit: 10)
+        #expect(clipped.omitted == 90)
+        #expect(clipped.text == String(repeating: family, count: 7) + "\n\n_(90 characters omitted)_\n\n" + String(repeating: "한", count: 3))
+        #expect(TextComposer.clip(String(repeating: family, count: 10), limit: 10).omitted == 0)
+        #expect(TextComposer.clip("", limit: 10).text == "")
+    }
+
+    @Test func composePageNormalizesLineEndingsAndHandlesEmptyText() {
+        let page = TextComposer.composePage(
+            appName: "Terminal", windowTitle: "", url: nil, selection: "  \n ", text: "a\r\nb\r\n\r\n\r\n\r\nc"
+        )
+        #expect(page.markdown == "# Terminal\n\na\nb\n\nc\n")
+        #expect(page.bodyCharacters == 6)
+        let empty = TextComposer.composePage(appName: "A", windowTitle: nil, url: nil, selection: nil, text: " \n ")
+        #expect(empty.markdown == "# A\n\n_(no readable text)_\n")
+        #expect(!empty.truncated)
     }
 }
 

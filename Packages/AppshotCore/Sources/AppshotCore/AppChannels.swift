@@ -67,10 +67,15 @@ public struct AppChannelBook: Codable, Sendable, Equatable {
 
     /// Adds new channels and renames known ones. Channels that are not in `harvest`
     /// stay, because Discord only lists the channels currently scrolled into view.
+    /// An empty server name means Discord did not show one, so a known name is kept.
     @discardableResult
     public mutating func merge(_ harvest: [AppChannel]) -> Bool {
         var changed = false
-        for item in harvest where !item.name.isEmpty {
+        for var item in harvest where !item.name.isEmpty {
+            if item.serverName.isEmpty,
+               let known = channels.first(where: { $0.app == item.app && $0.server == item.server && !$0.serverName.isEmpty }) {
+                item.serverName = known.serverName
+            }
             if let index = channels.firstIndex(where: { $0.app == item.app && $0.channel == item.channel }) {
                 if channels[index] != item {
                     channels[index] = item

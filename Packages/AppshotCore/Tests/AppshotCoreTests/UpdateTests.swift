@@ -71,6 +71,35 @@ import Testing
         }
     }
 
+    @Test func versionParsingEdges() {
+        #expect(AppVersion("1.0.0.1")! > AppVersion("1.0.0")!)
+        #expect(AppVersion("V2")!.description == "2")
+        #expect(AppVersion("1.2.3+45")! == AppVersion("1.2.3")!)
+        #expect(AppVersion(" 0.4.1 ")!.description == "0.4.1")
+        #expect(AppVersion("-1") == nil)
+        #expect(AppVersion("1.") == nil)
+    }
+
+    @Test func otherRefusalsAndDigestCase() throws {
+        #expect(throws: UpdateCheckError.notPublished) {
+            try UpdateCheck.evaluate(GitHubRelease.decode(releaseJSON(tag: "v0.4.0", draft: true)), currentVersion: "0.3.2")
+        }
+        #expect(throws: UpdateCheckError.badCurrentVersion("dev")) {
+            try UpdateCheck.evaluate(GitHubRelease.decode(releaseJSON(tag: "v0.4.0")), currentVersion: "dev")
+        }
+        let page = Data(String(decoding: releaseJSON(tag: "v0.4.0"), as: UTF8.self)
+            .replacingOccurrences(of: "https://github.com/floweredao/appshot/releases/tag/", with: "https://github.com/someone/appshot/releases/tag/").utf8)
+        #expect(throws: UpdateCheckError.untrustedURL("https://github.com/someone/appshot/releases/tag/v0.4.0")) {
+            try UpdateCheck.evaluate(GitHubRelease.decode(page), currentVersion: "0.3.2")
+        }
+        let same = try UpdateCheck.evaluate(GitHubRelease.decode(releaseJSON(tag: "v0.3.2", asset: "Other.zip")), currentVersion: "0.3.2")
+        #expect(same == .upToDate(latest: AppVersion("0.3.2")!))
+        let hex = "18a13284b4ecc21a6d3407addc68a03f7567c7eda8d3a90b67cf623e55fe1726"
+        #expect(UpdateCheck.sha256Hex(fromDigest: "SHA256:" + hex.uppercased()) == hex)
+        #expect(UpdateCheck.sha256Hex(fromDigest: "md5:" + hex) == nil)
+        #expect(UpdateCheck.sha256Hex(fromDigest: "sha256:" + hex + "0") == nil)
+    }
+
     @Test func onlyHTTPSReleaseAssetsOfThisRepositoryAreTrusted() throws {
         #expect(UpdateCheck.isTrustedDownload(URL(string: "https://github.com/floweredao/appshot/releases/download/v0.3.3/Appshot.zip")!))
         for bad in [
@@ -131,5 +160,12 @@ import Testing
         #expect(!UpdateCheck.isDue(lastCheck: now.addingTimeInterval(-3600), now: now))
         #expect(UpdateCheck.isDue(lastCheck: now.addingTimeInterval(-86_400), now: now))
         #expect(UpdateCheck.isDue(lastCheck: now.addingTimeInterval(3600), now: now))
+    }
+
+    @Test func digestMustBeASCIIHex() {
+        let hex = String(repeating: "a", count: 64)
+        #expect(UpdateCheck.sha256Hex(fromDigest: "sha256:" + hex) == hex)
+        // FULLWIDTH LATIN SMALL LETTER A counts as a hex digit for Character.isHexDigit.
+        #expect(UpdateCheck.sha256Hex(fromDigest: "sha256:" + String(repeating: "\u{FF41}", count: 64)) == nil)
     }
 }
