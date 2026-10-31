@@ -209,7 +209,14 @@ public enum EditRenderer {
     public static func fontSize(longEdge: CGFloat) -> CGFloat { max(12, longEdge * 0.024) }
     public static func pixelBlock(longEdge: CGFloat) -> CGFloat { max(6, longEdge / 90) }
 
-    private static let ciContext = CIContext(options: [.cacheIntermediates: false])
+    /// A CIContext is immutable once created and Core Image documents sharing one across threads, but SDKs
+    /// before macOS 26 do not mark the class `Sendable`. The box keeps the shared context compiling on every
+    /// SDK the package supports, instead of only on the newest one.
+    private struct SharedContext: @unchecked Sendable {
+        let context: CIContext
+    }
+
+    private static let ciContext = SharedContext(context: CIContext(options: [.cacheIntermediates: false]))
 
     public static func render(_ image: CGImage, edit: CaptureEdit, cropped: Bool = true) -> CGImage? {
         let width = image.width, height = image.height
@@ -364,7 +371,7 @@ public enum EditRenderer {
         filter.setValue(CIVector(x: ciArea.minX, y: ciArea.minY), forKey: kCIInputCenterKey)
         filter.setValue(block, forKey: kCIInputScaleKey)
         guard let output = filter.outputImage?.cropped(to: ciArea),
-              let pixels = ciContext.createCGImage(output, from: ciArea) else { return }
+              let pixels = ciContext.context.createCGImage(output, from: ciArea) else { return }
         context.saveGState()
         // Undo the flip for this draw so the bitmap lands upright.
         context.translateBy(x: 0, y: area.maxY)
