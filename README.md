@@ -228,6 +228,10 @@ open -n -W -a Appshot --stdout out.txt --args --appshot-now --note "what is this
 
 This captures the front window without showing the panel and prints a one-line result, such as `Posted to <destination> in Discord.`. `--channel` takes `recent` (the default), a `key` from `channels`, a destination ID, or a target such as `clipboard`. `--app <bundle ID>` captures that app's front window instead, `--delay-ms` waits before capturing (default 500), and `--config <path>` reads a different config file. Exit codes: 2 config error, 3 no window, 4 unknown channel, 5 send or write failure.
 
+## Contributing
+
+Issues and pull requests are welcome. [CONTRIBUTING.md](CONTRIBUTING.md) covers the layout, how to build and test, and the two rules this repository is strict about: every user-visible string in English and Korean, and no personal values in the repository.
+
 ## License
 
 MIT. See [LICENSE](LICENSE).
