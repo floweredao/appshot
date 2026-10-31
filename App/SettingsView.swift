@@ -117,6 +117,9 @@ struct SettingsView: View {
                 }
                 if let error = controller.configError {
                     Label(error, systemImage: "exclamationmark.triangle.fill").foregroundStyle(.orange)
+                } else if controller.config == nil {
+                    Text("No config file. It is optional: add one only to pin an assistant's Discord channels.")
+                        .foregroundStyle(.secondary)
                 }
                 HStack {
                     Spacer()

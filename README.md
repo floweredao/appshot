@@ -31,7 +31,7 @@
 - **Real destinations.** Pick a Discord server, channel, or active thread by name, search it, and keep your recent choices at the top. Your DM can carry its own name, like "My DM".
 - **Keyboard first.** ↩ sends, ⌘K opens the destination list, ⌘E edits the screenshot, ↑↓ moves, ⌘D stars a favorite, ⌘1–⌘9 picks quickly, and esc goes back or cancels.
 - **English and Korean.** The app follows your macOS language.
-- **Your channel sees what you sent.** Sending to a Discord channel posts the screenshot and your note there from your own account, through the Discord app, and also hands the folder to your assistant so it can reply to that message. The app holds no tokens. Its only network traffic of its own is the update check against GitHub, which you can turn off; anything else goes out only through a target you pick, such as Discord, a webhook, or an app you paste into.
+- **Your channel sees what you sent.** Sending to a Discord channel posts the screenshot and your note there from your own account, through the Discord app, so an assistant bot in that channel can reply to the message. The app holds no tokens. Its only network traffic of its own is the update check against GitHub, which you can turn off; anything else goes out only through a target you pick, such as Discord, a webhook, or an app you paste into.
 
 <p align="center"><img src="docs/picker-en-light.png" width="720" alt="Destination picker, light mode"></p>
 <p align="center"><img src="docs/picker-en-dark.png" width="720" alt="Destination picker, dark mode"></p>
@@ -168,28 +168,49 @@ How Codex does it: OpenAI documents that Appshots reads "available text" through
 
 ## Configuration
 
-Machine-specific values never live in the repository. Appshot reads `~/Library/Application Support/Appshot/config.json`. **Create Template** in **Settings… › Config file** writes the example below to that path:
+The config file is optional. Without it, Appshot sends to the clipboard, a folder, the Share menu, your apps, your commands, and the Discord channels it reads from the Discord app. Add one to pin Discord channels of an assistant bot at the top of the picker.
+
+Machine-specific values never live in the repository. Appshot reads `~/Library/Application Support/Appshot/config.json`. **Create Template** in **Settings… › Config file** writes the example below to that path; replace the IDs with your own (in Discord, turn on Developer Mode and choose **Copy Channel ID**):
 
 ```json
 {
-  "stateDir": "~/path/to/assistant/state",
   "channels": [
     { "key": "dm", "label": "My DM", "id": "DM_CHANNEL_ID", "kind": "direct" },
     { "key": "general", "label": "#general", "id": "GENERAL_CHANNEL_ID", "kind": "channel" }
   ],
-  "fallbackChannel": "general",
-  "catalog": { "cli": "/path/to/agent-discordbot", "bot": "BOT_ALIAS", "refreshMinutes": 15 }
+  "fallbackChannel": "general"
 }
 ```
 
 | Key | Meaning |
 | --- | --- |
-| `stateDir` | Folder with your assistant's `owner-inbox.jsonl` and `handled-ids.txt`, read only to preselect the last channel. Each can be overridden with `ownerInbox` or `handledIds` (an absolute path, or one relative to `stateDir`). Appshot never writes there. |
 | `channels` | Required. Destinations pinned at the top of the picker, such as your DM. Each needs a `key` and an `id`; `kind` is `direct` (the default), `channel`, or `thread`. |
-| `catalog` | Optional. Appshot runs this CLI (`server list`, `channel list`, `thread list`, with `--bot <bot>` when `bot` is set) every `refreshMinutes` minutes (default 15) and caches servers, channels, and active threads in `~/Library/Caches/Appshot/discord-catalog.json`, or in `path` if you set one. The bot token stays inside that CLI. |
-| `fallbackChannel` | Required. The `key` of one of `channels`, used when no recent conversation can be found. |
+| `fallbackChannel` | Required. The `key` of one of `channels`, preselected when nothing more recent is known. |
+| `catalog` | Optional integration, see [Bot catalog](#bot-catalog). |
+| `stateDir` | Optional integration, see [Assistant state](#assistant-state). |
 
-The preselected destination is the channel of the last message your assistant handled: the last ID in `handled-ids.txt`, looked up in `owner-inbox.jsonl`. If that ID isn't found, Appshot uses the last line of `owner-inbox.jsonl`, and if neither exists, `fallbackChannel`. If the last destination you sent to was not the assistant (for example the clipboard or an app), Appshot preselects that one instead.
+The preselected destination is the last place you sent an appshot. When that was an assistant channel (or nothing yet), it is the assistant's current conversation from [Assistant state](#assistant-state) if you set it up, otherwise `fallbackChannel`.
+
+### Bot catalog
+
+To list every server, channel, and active thread your assistant's bot can see, point `catalog` at a command-line tool that reads them with the bot's token:
+
+```json
+"catalog": { "cli": "/opt/homebrew/bin/agent-discordbot", "bot": "my-bot", "refreshMinutes": 15 }
+```
+
+Appshot is tested with `agent-discordbot` from [agent-messenger](https://github.com/agent-messenger/agent-messenger) (`npm install -g agent-messenger`, then sign the bot in with its `auth` command). It runs `server list`, `channel list --server <id>`, `thread list --server <id>`, `whoami`, and `message list <channel> --limit <n>`, adding `--bot <bot>` when `bot` is set, and reads their JSON output. Any tool with the same commands and output works. The servers, channels, and threads are cached every `refreshMinutes` minutes (default 15) in `~/Library/Caches/Appshot/discord-catalog.json`, or in `path` if you set one. The bot token stays inside that tool.
+
+### Assistant state
+
+If your assistant keeps a log of the Discord messages it receives, Appshot can preselect the conversation the assistant is in. Set `stateDir` to the folder with two files. Appshot only reads them and never writes there.
+
+| File | Format |
+| --- | --- |
+| `owner-inbox.jsonl` (or the path in `ownerInbox`) | One JSON object per received message, oldest first: `{"id": "<message id>", "channel": "<channel id>", "text": "…"}`. Other keys are ignored. |
+| `handled-ids.txt` (or the path in `handledIds`) | One message ID per line, the last one being the message the assistant handled most recently. |
+
+`ownerInbox` and `handledIds` take an absolute path or one relative to `stateDir`. Appshot picks the channel of the last handled message, or else of the last received one, or else `fallbackChannel`.
 
 ## Privacy
 

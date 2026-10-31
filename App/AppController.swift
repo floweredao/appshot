@@ -105,18 +105,15 @@ final class AppController {
             UserDefaults.standard.set(true, forKey: Self.onboardedKey)
             if SMAppService.mainApp.status != .enabled { setLaunchAtLogin(true) }
             showSettings()
-        } else if !screenRecordingAllowed || !accessibilityAllowed || config == nil {
+        } else if !screenRecordingAllowed || !accessibilityAllowed || configError != nil {
             showSettings()
         }
     }
 
     func reloadConfig() {
         do {
-            config = try AppshotConfig.load(from: configURL)
+            config = try AppshotConfig.loadIfPresent(from: configURL)
             configError = nil
-        } catch CocoaError.fileReadNoSuchFile {
-            config = nil
-            configError = String(localized: "The config file does not exist yet.")
         } catch {
             config = nil
             configError = String(describing: error)
@@ -727,7 +724,7 @@ final class AppController {
             // The same choice the panel preselects; without an assistant config only the last destination is left.
             let resolved = config.map { ChannelResolver(config: $0).resolve() }
             guard let preferred = index.preferred(resolved: resolved, lastDestination: UserDefaults.standard.string(forKey: Self.lastKey)) else {
-                FileHandle.standardError.write(Data("appshot: \(configError ?? "config error")\n".utf8))
+                FileHandle.standardError.write(Data("appshot: \(configError ?? "no recent destination yet; send one appshot from the panel or pass --channel")\n".utf8))
                 exit(2)
             }
             destination = preferred
